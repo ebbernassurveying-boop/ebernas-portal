@@ -1,24 +1,31 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 
-// ── SIMPLE LOCAL AUTH ─────────────────────────────────────────────────────────
-// Admin accounts — fixed
+// ── LOCALSTORAGE HELPERS ───────────────────────────────────────────────────────
+const LS = {
+  get: (key, def) => { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } },
+  set: (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} },
+};
+
+// ── AUTH ───────────────────────────────────────────────────────────────────────
 const ADMIN_ACCOUNTS = [
   { email: "e.b.bernassurveying@gmail.com", password: "Ebernas2026!", name: "Engr. Eugene Benedict Bernas", role: "admin" },
   { email: "admin2@ebernas.com", password: "Admin2026!", name: "Admin 2", role: "admin" },
 ];
 
-// Employee accounts stored in memory (admin can add)
-let EMPLOYEE_ACCOUNTS = [];
+function getEmployees() { return LS.get("eb_employees", []); }
+function saveEmployees(list) { LS.set("eb_employees", list); }
 
 function findUser(email, password) {
-  const all = [...ADMIN_ACCOUNTS, ...EMPLOYEE_ACCOUNTS];
+  const all = [...ADMIN_ACCOUNTS, ...getEmployees()];
   return all.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password) || null;
 }
 
 function registerEmployee(name, email, password) {
-  const exists = [...ADMIN_ACCOUNTS, ...EMPLOYEE_ACCOUNTS].find((u) => u.email.toLowerCase() === email.toLowerCase());
-  if (exists) return { error: "Email already registered." };
-  EMPLOYEE_ACCOUNTS.push({ email, password, name, role: "employee", approved: false });
+  const all = [...ADMIN_ACCOUNTS, ...getEmployees()];
+  if (all.find((u) => u.email.toLowerCase() === email.toLowerCase())) return { error: "Email already registered." };
+  const emps = getEmployees();
+  emps.push({ email, password, name, role: "employee", approved: false, registeredAt: new Date().toLocaleDateString("en-PH") });
+  saveEmployees(emps);
   return { success: true };
 }
 
@@ -672,7 +679,7 @@ function RequirementsPanel({ caseType, files, baseReqs }) {
 }
 
 // ── DOCUMENTS ─────────────────────────────────────────────────────────────────
-function DocumentsPage({ client }) {
+function DocumentsPage({ client, isAdmin }) {
   const folders = CLIENT_FOLDERS[client] || [];
   const [files, setFiles] = useState(INIT_FILES);
   const [activeFolder, setActiveFolder] = useState("Property Documents");
@@ -783,10 +790,11 @@ function DocumentsPage({ client }) {
                     Uploaded {file.date} by {file.by}
                   </p>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button onClick={() => updateFile(file.id, "Approved")} className="btn-primary" style={{ fontSize: 11, padding: "6px 12px" }}>✓ Approve</button>
-                    <button onClick={() => updateFile(file.id, "For Review")} className="btn-outline" style={{ fontSize: 11, padding: "6px 12px" }}>For Review</button>
-                    <button onClick={() => updateFile(file.id, "For Resubmission")} className="btn-outline" style={{ fontSize: 11, padding: "6px 12px" }}>Return</button>
-                    <button onClick={() => deleteFile(file.id)} className="btn-danger" style={{ marginLeft: "auto" }}>🗑 Delete</button>
+                    {isAdmin && <button onClick={() => updateFile(file.id, "Approved")} className="btn-primary" style={{ fontSize: 11, padding: "6px 12px" }}>✓ Approve</button>}
+                    {isAdmin && <button onClick={() => updateFile(file.id, "For Review")} className="btn-outline" style={{ fontSize: 11, padding: "6px 12px" }}>For Review</button>}
+                    {isAdmin && <button onClick={() => updateFile(file.id, "For Resubmission")} className="btn-outline" style={{ fontSize: 11, padding: "6px 12px" }}>Return</button>}
+                    {isAdmin && <button onClick={() => deleteFile(file.id)} className="btn-danger" style={{ marginLeft: "auto" }}>🗑 Delete</button>}
+                    {!isAdmin && <Badge label="Uploaded" variant="badge-green" />}
                   </div>
                 </div>
               ))}
@@ -1113,7 +1121,7 @@ function SchedulePage({ schedules, setSchedules }) {
 }
 
 // ── CHECKLIST ─────────────────────────────────────────────────────────────────
-function ChecklistPage({ client, caseStore, setCaseStore }) {
+function ChecklistPage({ client, caseStore, setCaseStore, isAdmin }) {
   const data = caseStore[client] || caseStore["Santos Family"];
   const [newItem, setNewItem] = useState("");
 
@@ -1163,9 +1171,9 @@ function ChecklistPage({ client, caseStore, setCaseStore }) {
             </button>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Badge label={item.status} variant={statusBadge(item.status)} />
-              <button onClick={() => removeItem(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(220,245,230,0.2)", fontSize: 13, padding: "0 2px" }}
+              {isAdmin && <button onClick={() => removeItem(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(220,245,230,0.2)", fontSize: 13, padding: "0 2px" }}
                 onMouseOver={(e) => e.currentTarget.style.color = "#fb7185"}
-                onMouseOut={(e) => e.currentTarget.style.color = "rgba(220,245,230,0.2)"}>✕</button>
+                onMouseOut={(e) => e.currentTarget.style.color = "rgba(220,245,230,0.2)"}>✕</button>}
             </div>
           </div>
         ))}
@@ -1580,15 +1588,126 @@ function FormsPage({ caseStore }) {
   );
 }
 
+// ── ADMIN PANEL ───────────────────────────────────────────────────────────────
+function AdminPanel() {
+  const [employees, setEmployees] = useState(getEmployees());
+
+  const refresh = () => setEmployees(getEmployees());
+
+  const approve = (email) => {
+    const list = getEmployees().map(e => e.email === email ? { ...e, approved: true } : e);
+    saveEmployees(list); refresh();
+  };
+
+  const reject = (email) => {
+    const list = getEmployees().filter(e => e.email !== email);
+    saveEmployees(list); refresh();
+  };
+
+  const pending = employees.filter(e => !e.approved);
+  const approved = employees.filter(e => e.approved);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <Card>
+        <SectionHeader eyebrow="Admin Panel" title="👑 Employee Management" />
+
+        {/* Pending Approvals */}
+        <div style={{ marginBottom: 24 }}>
+          <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#fb7185", marginBottom: 12 }}>
+            ⏳ Pending Approval ({pending.length})
+          </p>
+          {pending.length === 0 ? (
+            <p style={{ fontSize: 13, color: "rgba(220,245,230,0.3)", padding: "12px 0" }}>No pending registrations.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {pending.map(e => (
+                <div key={e.email} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderRadius: 14, border: "1px solid rgba(251,113,133,0.25)", background: "rgba(251,113,133,0.05)", padding: "12px 16px", gap: 12 }}>
+                  <div>
+                    <p style={{ fontWeight: 700, fontSize: 13 }}>{e.name}</p>
+                    <p style={{ fontSize: 11, color: "rgba(220,245,230,0.45)", marginTop: 2 }}>📧 {e.email} · Registered: {e.registeredAt || "—"}</p>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => approve(e.email)} className="btn-primary" style={{ fontSize: 11, padding: "6px 14px" }}>✓ Approve</button>
+                    <button onClick={() => reject(e.email)} className="btn-danger" style={{ fontSize: 11, padding: "6px 12px" }}>✕ Reject</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Approved Employees */}
+        <div>
+          <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#34d399", marginBottom: 12 }}>
+            ✅ Approved Employees ({approved.length})
+          </p>
+          {approved.length === 0 ? (
+            <p style={{ fontSize: 13, color: "rgba(220,245,230,0.3)", padding: "12px 0" }}>No approved employees yet.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {approved.map(e => (
+                <div key={e.email} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderRadius: 14, border: "1px solid rgba(52,211,153,0.2)", background: "rgba(52,211,153,0.04)", padding: "12px 16px", gap: 12 }}>
+                  <div>
+                    <p style={{ fontWeight: 700, fontSize: 13 }}>👤 {e.name}</p>
+                    <p style={{ fontSize: 11, color: "rgba(220,245,230,0.45)", marginTop: 2 }}>📧 {e.email}</p>
+                  </div>
+                  <button onClick={() => reject(e.email)} className="btn-danger" style={{ fontSize: 11, padding: "6px 12px" }}>Remove</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Card>
+        <p className="eyebrow" style={{ marginBottom: 10 }}>Employee Permissions</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[
+            { action: "View cases & schedules", allowed: true },
+            { action: "Upload documents", allowed: true },
+            { action: "Tick checklist items", allowed: true },
+            { action: "Add schedule entries", allowed: true },
+            { action: "Delete documents", allowed: false },
+            { action: "Delete cases or schedules", allowed: false },
+            { action: "Edit case information", allowed: false },
+            { action: "Approve documents", allowed: false },
+            { action: "Access Admin Panel", allowed: false },
+          ].map(p => (
+            <div key={p.action} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderRadius: 12, border: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.1)", padding: "9px 14px" }}>
+              <p style={{ fontSize: 13 }}>{p.action}</p>
+              <span style={{ fontSize: 12, fontWeight: 700, color: p.allowed ? "#34d399" : "#fb7185" }}>{p.allowed ? "✓ Allowed" : "✕ Restricted"}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function EBBernasPortal() {
   const [activeMenu, setActiveMenu] = useState("overview");
   const [selectedClient, setSelectedClient] = useState("Santos Family");
   const [search, setSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [caseStore, setCaseStore] = useState(INIT_CASES);
   const [currentUser, setCurrentUser] = useState(null);
-  const [schedules, setSchedules] = useState([]);
+
+  // ── PERSISTENT STATE via localStorage ──
+  const [caseStore, setCaseStoreRaw] = useState(() => LS.get("eb_cases", INIT_CASES));
+  const [schedules, setSchedulesRaw] = useState(() => LS.get("eb_schedules", []));
+
+  const setCaseStore = (val) => {
+    const next = typeof val === "function" ? val(caseStore) : val;
+    setCaseStoreRaw(next);
+    LS.set("eb_cases", next);
+  };
+
+  const setSchedules = (val) => {
+    const next = typeof val === "function" ? val(schedules) : val;
+    setSchedulesRaw(next);
+    LS.set("eb_schedules", next);
+  };
 
   const handleLogout = () => setCurrentUser(null);
 
@@ -1606,6 +1725,7 @@ export default function EBBernasPortal() {
     { id: "messaging", label: "Client Messaging" },
     { id: "newcase", label: "Create New Case" },
     { id: "forms", label: "📋 Forms Generator" },
+    ...(isAdmin ? [{ id: "admin", label: "👑 Admin Panel" }] : []),
   ];
 
   const setMenu = (m) => { setActiveMenu(m); setSidebarOpen(false); };
@@ -1762,13 +1882,15 @@ export default function EBBernasPortal() {
           <main className="content">
             {activeMenu === "overview" && <OverviewPage caseStore={caseStore} />}
             {activeMenu === "schedule" && <SchedulePage schedules={schedules} setSchedules={setSchedules} />}
-            {activeMenu === "dashboard" && <DashboardPage client={selectedClient} caseStore={caseStore} setCaseStore={setCaseStore} />}
+            {activeMenu === "dashboard" && <DashboardPage client={selectedClient} caseStore={caseStore} setCaseStore={setCaseStore} isAdmin={isAdmin} />}
             {activeMenu === "cases" && <CasesPage setClient={setSelectedClient} setMenu={setMenu} search={search} setSearch={setSearch} />}
-            {activeMenu === "documents" && <DocumentsPage client={selectedClient} />}
-            {activeMenu === "checklist" && <ChecklistPage client={selectedClient} caseStore={caseStore} setCaseStore={setCaseStore} />}
+            {activeMenu === "documents" && <DocumentsPage client={selectedClient} isAdmin={isAdmin} />}
+            {activeMenu === "checklist" && <ChecklistPage client={selectedClient} caseStore={caseStore} setCaseStore={setCaseStore} isAdmin={isAdmin} />}
             {activeMenu === "messaging" && <MessagingPage />}
-            {activeMenu === "newcase" && <NewCasePage />}
+            {activeMenu === "newcase" && isAdmin && <NewCasePage />}
+            {activeMenu === "newcase" && !isAdmin && <Card><p style={{textAlign:"center",padding:"40px 0",color:"rgba(220,245,230,0.3)"}}>⚠️ Admin access only.</p></Card>}
             {activeMenu === "forms" && <FormsPage caseStore={caseStore} />}
+            {activeMenu === "admin" && isAdmin && <AdminPanel />}
           </main>
         </div>
       </div>
