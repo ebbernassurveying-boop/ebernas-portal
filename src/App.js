@@ -1892,3 +1892,4 @@ export default function EBBernasPortal() {
     </>
   );
 }
+ 
