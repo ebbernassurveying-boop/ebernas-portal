@@ -313,12 +313,7 @@ const INIT_FILES = [
   { id: 4, name: "OR_BIR_Payment.pdf", folder: "Official Receipts", type: "Official Receipt", date: "Mar 16, 2026", by: "Paolo", review: "Approved", isReceipt: true },
 ];
 
-const STATS = [
-  { label: "Active Client Files", value: "48", icon: "📁" },
-  { label: "Pending Documents", value: "19", icon: "⏳" },
-  { label: "Completed Transfers", value: "312", icon: "✅" },
-  { label: "Avg. Response Time", value: "< 15 min", icon: "⚡" },
-];
+
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 const toneBadge = (t) => ({ amber: "badge-amber", blue: "badge-blue", green: "badge-green" }[t] || "badge-neutral");
@@ -364,48 +359,81 @@ function InfoBlock({ label, value }) {
 }
 
 // ── OVERVIEW ──────────────────────────────────────────────────────────────────
-function OverviewPage() {
+function OverviewPage({ caseStore }) {
+  const [avgResponse, setAvgResponse] = useState("< 15 min");
+  const [editAvg, setEditAvg] = useState(false);
+
+  const clients = Object.keys(caseStore);
+  const activeFiles = clients.length;
+  const pendingDocs = clients.reduce((acc, c) => acc + (caseStore[c].checklist?.filter(i => i.status !== "Completed").length || 0), 0);
+  const completedTransfers = clients.reduce((acc, c) => acc + (caseStore[c].checklist?.filter(i => i.status === "Completed").length || 0), 0);
+
   return (
-    <div style={{ display: "grid", gap: 24, gridTemplateColumns: "1.1fr 0.9fr" }}>
+    <div style={{ display: "grid", gap: 22, gridTemplateColumns: "1.2fr 0.8fr" }}>
       <Card>
         <SectionHeader eyebrow="Overview / Company Profile" title="E.B. Bernas Land Consultancy" />
-        <p className="body-text" style={{ marginBottom: 22 }}>
-          E.B. Bernas Land Consultancy is an authorized land consultancy service focused on land documentation,
-          client case handling, property records coordination, and transaction processing support.
+        <p className="body-text" style={{ marginBottom: 18 }}>
+          A licensed land survey and consultancy firm providing comprehensive land documentation, case handling, property records coordination, and transaction processing services.
         </p>
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
           <InfoBlock label="Office Address" value="No. 051, Barangay Garrita, Municipality of Bani, Pangasinan, Region I" />
-          <InfoBlock label="Authorization" value="Authorized by the Lands Management Bureau until October 20, 2028." />
-          <InfoBlock label="Main Services" value="Transfer, Segregation, Subdivision (Titled / Tax Dec), Relocation Plan (Titled / Not Titled), Titling." />
-          <InfoBlock label="Portal Purpose" value="Internal portal for case monitoring, document tracking, checklist review, and client updates." />
+          <InfoBlock label="License / Authorization" value="Licensed Geodetic Engineer since 2011. Authorized by the Lands Management Bureau until October 20, 2028." />
+          <InfoBlock label="Main Services" value="Transfer, Segregation, Subdivision (Titled / Tax Dec), Relocation Plan (Titled / Not Titled), Titling, and All Kinds of Survey." />
+          <div className="info-block">
+            <p className="info-label">Contact Information</p>
+            <p className="info-value">📧 e.b.bernassurveying@gmail.com</p>
+            <p className="info-value" style={{ marginTop: 4 }}>📱 09176525851</p>
+          </div>
         </div>
       </Card>
-      <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <Card>
-          <SectionHeader eyebrow="Company Snapshot" title="Key Metrics" />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div><p className="eyebrow">Company Snapshot</p><h3 className="section-title">Key Metrics</h3></div>
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            {STATS.map((s) => (
-              <div key={s.label} className="stat-card">
-                <span className="stat-icon">{s.icon}</span>
-                <p className="stat-value">{s.value}</p>
-                <p className="stat-label">{s.label}</p>
-              </div>
-            ))}
+            <div className="stat-card">
+              <span className="stat-icon">📁</span>
+              <p className="stat-value">{activeFiles}</p>
+              <p className="stat-label">Active Client Files</p>
+            </div>
+            <div className="stat-card">
+              <span className="stat-icon">⏳</span>
+              <p className="stat-value" style={{ color: "#fb7185" }}>{pendingDocs}</p>
+              <p className="stat-label">Pending Items</p>
+            </div>
+            <div className="stat-card">
+              <span className="stat-icon">✅</span>
+              <p className="stat-value" style={{ color: "#34d399" }}>{completedTransfers}</p>
+              <p className="stat-label">Completed Items</p>
+            </div>
+            <div className="stat-card">
+              <span className="stat-icon">⚡</span>
+              {editAvg ? (
+                <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
+                  <input value={avgResponse} onChange={(e) => setAvgResponse(e.target.value)}
+                    style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "4px 8px", fontSize: 13, color: "#e8f5ee", fontFamily: "inherit", outline: "none", width: "100%" }} />
+                  <button onClick={() => setEditAvg(false)} className="btn-primary" style={{ fontSize: 11, padding: "4px 8px", whiteSpace: "nowrap" }}>✓</button>
+                </div>
+              ) : (
+                <p className="stat-value" onClick={() => setEditAvg(true)} style={{ cursor: "pointer" }}>{avgResponse}</p>
+              )}
+              <p className="stat-label">Avg. Response Time {!editAvg && <span style={{ fontSize: 9, opacity: 0.5 }}>(click to edit)</span>}</p>
+            </div>
           </div>
         </Card>
+
         <Card>
-          <SectionHeader eyebrow="About the Portal" title="What employees can do here" />
+          <p className="eyebrow" style={{ marginBottom: 10 }}>Quick Info</p>
           {[
-            "Search client name or lot number and open a full dashboard.",
-            "Track date of survey and date of submittal per case.",
-            "Upload property documents, official receipts, and all files per folder.",
-            "Review checklist, status, remarks, and missing requirements.",
-            "Create new cases with auto-generated folder structures.",
-            "Prepare and send client updates and portal notices.",
+            "Go to Checklist Tracker to manage status per client.",
+            "Go to Schedule to add surveys, appointments & deadlines.",
+            "Go to Create New Case to register a new client.",
           ].map((t) => (
-            <div key={t} style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              <span style={{ color: "#fbbf24", flexShrink: 0, marginTop: 2 }}>→</span>
-              <p className="body-text" style={{ margin: 0 }}>{t}</p>
+            <div key={t} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <span style={{ color: "#fbbf24", flexShrink: 0 }}>→</span>
+              <p style={{ fontSize: 12, color: "rgba(220,245,230,0.6)", lineHeight: 1.6 }}>{t}</p>
             </div>
           ))}
         </Card>
@@ -769,6 +797,317 @@ function DocumentsPage({ client }) {
         {/* Requirements */}
         <RequirementsPanel caseType={caseType} files={files} baseReqs={reqs} />
       </div>
+    </div>
+  );
+}
+
+// ── SCHEDULE PAGE ─────────────────────────────────────────────────────────────
+function SchedulePage({ schedules, setSchedules }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [filter, setFilter] = useState("All");
+  const [form, setForm] = useState({ title: "", client: "", type: "Survey", surveyType: "", lotNo: "", date: "", time: "", location: "", contact: "", remarks: "" });
+  const [selectedSchedule, setSelectedSchedule] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+
+  const types = ["Survey", "Appointment", "Deadline", "Follow-up", "Other"];
+  const typeColor = (t) => ({ Survey: "#34d399", Appointment: "#60a5fa", Deadline: "#fb7185", "Follow-up": "#fbbf24", Other: "#a78bfa" }[t] || "#a78bfa");
+  const typeIcon = (t) => ({ Survey: "📐", Appointment: "🤝", Deadline: "⚠️", "Follow-up": "📞", Other: "📌" }[t] || "📌");
+
+  const today = new Date().toISOString().split("T")[0];
+
+  const openAddForDate = (dayStr) => {
+    setForm(p => ({ ...p, date: dayStr }));
+    setEditingId(null);
+    setShowAdd(true);
+    setSelectedSchedule(null);
+  };
+
+  const openEdit = (s) => {
+    setForm({ title: s.title, client: s.client, type: s.type, date: s.date, time: s.time, location: s.location, contact: s.contact || "", remarks: s.remarks });
+    setEditingId(s.id);
+    setShowAdd(true);
+    setSelectedSchedule(null);
+  };
+
+  const saveSchedule = () => {
+    if (!form.title.trim() || !form.date) return;
+    if (editingId) {
+      setSchedules(p => p.map(s => s.id === editingId ? { ...s, ...form } : s));
+      setEditingId(null);
+    } else {
+      setSchedules(p => [...p, { ...form, id: Date.now(), done: false }]);
+    }
+    setForm({ title: "", client: "", type: "Survey", surveyType: "", lotNo: "", date: "", time: "", location: "", contact: "", remarks: "" });
+    setShowAdd(false);
+  };
+
+  const toggleDone = (id) => {
+    setSchedules(p => p.map(s => s.id === id ? { ...s, done: !s.done } : s));
+    if (selectedSchedule?.id === id) setSelectedSchedule(p => ({ ...p, done: !p.done }));
+  };
+  const deleteSchedule = (id) => {
+    setSchedules(p => p.filter(s => s.id !== id));
+    if (selectedSchedule?.id === id) setSelectedSchedule(null);
+  };
+
+  const filtered = schedules.filter(s => filter === "All" || s.type === filter);
+  const upcoming = filtered.filter(s => !s.done && s.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+  const past = filtered.filter(s => s.done || s.date < today).sort((a, b) => b.date.localeCompare(a.date));
+
+  const now = new Date();
+  const [calMonth, setCalMonth] = useState(now.getMonth());
+  const [calYear, setCalYear] = useState(now.getFullYear());
+
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+  const schedulesThisMonth = schedules.filter(s => {
+    const d = new Date(s.date);
+    return d.getMonth() === calMonth && d.getFullYear() === calYear;
+  });
+
+  const getDaySchedules = (day) => schedulesThisMonth.filter(s => new Date(s.date).getDate() === day);
+
+  const inputSt = { background: "rgba(0,0,0,0.15)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 12px", fontSize: 12, color: "#e8f5ee", fontFamily: "inherit", outline: "none", width: "100%" };
+
+  return (
+    <div style={{ display: "flex", gap: 20 }}>
+      {/* ── MAIN CONTENT ── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 22, minWidth: 0 }}>
+
+      {/* ── CALENDAR VIEW ── */}
+      <Card>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+          <div><p className="eyebrow">Calendar</p><h3 className="section-title">📅 {monthNames[calMonth]} {calYear}</h3></div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y-1); } else setCalMonth(m => m-1); }} className="btn-outline" style={{ padding: "6px 12px", fontSize: 13 }}>‹</button>
+            <button onClick={() => { setCalMonth(now.getMonth()); setCalYear(now.getFullYear()); }} className="btn-outline" style={{ padding: "6px 12px", fontSize: 11 }}>Today</button>
+            <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y+1); } else setCalMonth(m => m+1); }} className="btn-outline" style={{ padding: "6px 12px", fontSize: 13 }}>›</button>
+            <button onClick={() => { setEditingId(null); setForm(p => ({...p, date: today})); setShowAdd(true); setSelectedSchedule(null); }} className="btn-primary" style={{ fontSize: 12, padding: "7px 14px" }}>+ Add Schedule</button>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 4 }}>
+          {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => (
+            <div key={d} style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: "rgba(220,245,230,0.4)", letterSpacing: "0.1em", padding: "4px 0" }}>{d}</div>
+          ))}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+          {Array.from({ length: firstDay }).map((_, i) => <div key={"empty-"+i} />)}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const day = i + 1;
+            const dayStr = `${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+            const isToday = dayStr === today;
+            const dayScheds = getDaySchedules(day);
+            return (
+              <div key={day} onClick={() => openAddForDate(dayStr)}
+                style={{ borderRadius: 10, border: isToday ? "1.5px solid #34d399" : "1px solid rgba(255,255,255,0.07)", background: isToday ? "rgba(52,211,153,0.08)" : "rgba(0,0,0,0.1)", padding: "6px", minHeight: 52, cursor: "pointer", transition: "background 0.15s" }}
+                onMouseOver={(e) => e.currentTarget.style.background = isToday ? "rgba(52,211,153,0.14)" : "rgba(255,255,255,0.05)"}
+                onMouseOut={(e) => e.currentTarget.style.background = isToday ? "rgba(52,211,153,0.08)" : "rgba(0,0,0,0.1)"}>
+                <p style={{ fontSize: 11, fontWeight: isToday ? 800 : 500, color: isToday ? "#34d399" : "rgba(220,245,230,0.6)", marginBottom: 3 }}>{day}</p>
+                {dayScheds.slice(0,2).map(s => (
+                  <div key={s.id} onClick={() => setSelectedSchedule(s)}
+                    style={{ fontSize: 9, borderRadius: 4, padding: "2px 4px", marginBottom: 2, background: typeColor(s.type) + "22", color: typeColor(s.type), fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", cursor: "pointer" }}>
+                    {typeIcon(s.type)} {s.title}
+                  </div>
+                ))}
+                {dayScheds.length > 2 && <p style={{ fontSize: 9, color: "rgba(220,245,230,0.4)", cursor: "pointer" }} onClick={() => setSelectedSchedule(dayScheds[2])}>+{dayScheds.length-2} more</p>}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* ── ADD / EDIT FORM ── */}
+      {showAdd && (
+        <Card>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div><p className="eyebrow">{editingId ? "Edit Entry" : "New Entry"}</p><h3 className="section-title">{editingId ? "Edit Schedule" : "Add Schedule"}</h3></div>
+            <button onClick={() => { setShowAdd(false); setEditingId(null); setForm({ title: "", client: "", type: "Survey", surveyType: "", lotNo: "", date: "", time: "", location: "", contact: "", remarks: "" }); }} className="btn-outline" style={{ fontSize: 12 }}>✕ Cancel</button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <input value={form.title} onChange={(e) => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Title / Description *" style={inputSt} />
+            <input value={form.client} onChange={(e) => setForm(p => ({ ...p, client: e.target.value }))} placeholder="Client Name (optional)" style={inputSt} />
+
+            {/* Event Type */}
+            <select value={form.type} onChange={(e) => setForm(p => ({ ...p, type: e.target.value }))} style={inputSt}>
+              {types.map(t => <option key={t}>{t}</option>)}
+            </select>
+
+            {/* Survey Type — only show when type is Survey */}
+            {form.type === "Survey" ? (
+              <select value={form.surveyType} onChange={(e) => setForm(p => ({ ...p, surveyType: e.target.value }))} style={inputSt}>
+                <option value="">-- Kind of Survey --</option>
+                <option>Relocation Survey</option>
+                <option>Subdivision Survey</option>
+                <option>Topographic Survey</option>
+                <option>Cadastral Survey</option>
+                <option>Boundary Survey</option>
+                <option>Hydrographic Survey</option>
+                <option>As-Built Survey</option>
+                <option>Route Survey</option>
+                <option>Other Survey</option>
+              </select>
+            ) : (
+              <input value={form.location} onChange={(e) => setForm(p => ({ ...p, location: e.target.value }))} placeholder="Location (optional)" style={inputSt} />
+            )}
+
+            <input value={form.lotNo} onChange={(e) => setForm(p => ({ ...p, lotNo: e.target.value }))} placeholder="Lot No. (optional)" style={inputSt} />
+            <input value={form.contact} onChange={(e) => setForm(p => ({ ...p, contact: e.target.value }))} placeholder="Contact No. (optional)" style={inputSt} />
+            {form.type === "Survey" && (
+              <input value={form.location} onChange={(e) => setForm(p => ({ ...p, location: e.target.value }))} placeholder="Location (optional)" style={inputSt} />
+            )}
+            <input type="date" value={form.date} onChange={(e) => setForm(p => ({ ...p, date: e.target.value }))} style={inputSt} />
+            <input type="time" value={form.time} onChange={(e) => setForm(p => ({ ...p, time: e.target.value }))} style={inputSt} />
+            <input value={form.remarks} onChange={(e) => setForm(p => ({ ...p, remarks: e.target.value }))} placeholder="Remarks / Notes" style={{ ...inputSt, gridColumn: "1 / -1" }} />
+          </div>
+          <button onClick={saveSchedule} className="btn-primary" style={{ width: "100%", padding: "11px 0", marginTop: 14 }}>
+            {editingId ? "✓ Save Changes" : "✓ Add to Schedule"}
+          </button>
+        </Card>
+      )}
+
+      {/* ── LIST ── */}
+      <Card>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div><p className="eyebrow">Schedule List</p><h3 className="section-title">All Events</h3></div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {["All", ...types].map(t => (
+              <button key={t} onClick={() => setFilter(t)}
+                style={{ fontSize: 11, padding: "5px 12px", borderRadius: 999, border: filter === t ? "none" : "1px solid rgba(255,255,255,0.12)", background: filter === t ? "#fff" : "transparent", color: filter === t ? "#0a1a13" : "rgba(220,245,230,0.6)", fontFamily: "inherit", cursor: "pointer", fontWeight: 600 }}>
+                {t === "All" ? "All" : typeIcon(t) + " " + t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {upcoming.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#34d399", marginBottom: 10 }}>Upcoming</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {upcoming.map(s => (
+                <div key={s.id} onClick={() => setSelectedSchedule(s)}
+                  style={{ display: "flex", alignItems: "center", gap: 12, borderRadius: 14, border: selectedSchedule?.id === s.id ? `1.5px solid ${typeColor(s.type)}` : `1px solid ${typeColor(s.type)}33`, background: selectedSchedule?.id === s.id ? `${typeColor(s.type)}18` : `${typeColor(s.type)}0a`, padding: "12px 16px", cursor: "pointer", transition: "all 0.15s" }}>
+                  <span style={{ fontSize: 18 }}>{typeIcon(s.type)}</span>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: 700, fontSize: 13 }}>{s.title}</p>
+                    <p style={{ fontSize: 11, color: "rgba(220,245,230,0.5)", marginTop: 2 }}>
+                      📅 {fmtDate(s.date)}{s.time && " · ⏰ " + s.time}{s.client && " · 👤 " + s.client}
+                    </p>
+                  </div>
+                  <span style={{ fontSize: 11, color: typeColor(s.type), fontWeight: 600 }}>{s.type}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {past.length > 0 && (
+          <div>
+            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(220,245,230,0.35)", marginBottom: 10 }}>Past / Done</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {past.map(s => (
+                <div key={s.id} onClick={() => setSelectedSchedule(s)}
+                  style={{ display: "flex", alignItems: "center", gap: 12, borderRadius: 14, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.08)", padding: "10px 16px", opacity: 0.55, cursor: "pointer" }}>
+                  <span style={{ fontSize: 16 }}>{typeIcon(s.type)}</span>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: 600, fontSize: 12, textDecoration: "line-through" }}>{s.title}</p>
+                    <p style={{ fontSize: 10, color: "rgba(220,245,230,0.4)", marginTop: 1 }}>{fmtDate(s.date)}{s.client && " · " + s.client}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {upcoming.length === 0 && past.length === 0 && (
+          <p style={{ textAlign: "center", padding: "32px 0", color: "rgba(220,245,230,0.25)", fontSize: 13 }}>No schedules yet. Click "+ Add Schedule" to start.</p>
+        )}
+      </Card>
+      </div>
+
+      {/* ── SIDE PANEL ── */}
+      {selectedSchedule && (
+        <div style={{ width: 280, flexShrink: 0, position: "sticky", top: 88, alignSelf: "flex-start" }}>
+          <div style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${typeColor(selectedSchedule.type)}44`, borderRadius: 24, padding: 20 }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
+              <div>
+                <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: typeColor(selectedSchedule.type), marginBottom: 4 }}>
+                  {typeIcon(selectedSchedule.type)} {selectedSchedule.type}
+                </p>
+                <h4 style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.3 }}>{selectedSchedule.title}</h4>
+              </div>
+              <button onClick={() => setSelectedSchedule(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(220,245,230,0.4)", fontSize: 18, padding: "0 0 0 8px" }}>✕</button>
+            </div>
+
+            {/* Details */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ background: "rgba(0,0,0,0.15)", borderRadius: 12, padding: "10px 14px" }}>
+                <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(220,245,230,0.4)", marginBottom: 4 }}>Date & Time</p>
+                <p style={{ fontSize: 13, fontWeight: 600 }}>📅 {fmtDate(selectedSchedule.date)}</p>
+                {selectedSchedule.time && <p style={{ fontSize: 12, color: "rgba(220,245,230,0.6)", marginTop: 2 }}>⏰ {selectedSchedule.time}</p>}
+              </div>
+
+              {selectedSchedule.client && (
+                <div style={{ background: "rgba(0,0,0,0.15)", borderRadius: 12, padding: "10px 14px" }}>
+                  <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(220,245,230,0.4)", marginBottom: 4 }}>Client</p>
+                  <p style={{ fontSize: 13, fontWeight: 600 }}>👤 {selectedSchedule.client}</p>
+                </div>
+              )}
+
+              {selectedSchedule.surveyType && (
+                <div style={{ background: "rgba(0,0,0,0.15)", borderRadius: 12, padding: "10px 14px" }}>
+                  <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(220,245,230,0.4)", marginBottom: 4 }}>Kind of Survey</p>
+                  <p style={{ fontSize: 13, fontWeight: 600 }}>📐 {selectedSchedule.surveyType}</p>
+                </div>
+              )}
+
+              {selectedSchedule.lotNo && (
+                <div style={{ background: "rgba(0,0,0,0.15)", borderRadius: 12, padding: "10px 14px" }}>
+                  <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(220,245,230,0.4)", marginBottom: 4 }}>Lot No.</p>
+                  <p style={{ fontSize: 13, fontWeight: 600 }}>🏷️ {selectedSchedule.lotNo}</p>
+                </div>
+              )}
+
+              {selectedSchedule.contact && (
+                <div style={{ background: "rgba(0,0,0,0.15)", borderRadius: 12, padding: "10px 14px" }}>
+                  <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(220,245,230,0.4)", marginBottom: 4 }}>Contact No.</p>
+                  <p style={{ fontSize: 13, fontWeight: 600 }}>📱 {selectedSchedule.contact}</p>
+                </div>
+              )}
+
+              {selectedSchedule.location && (
+                <div style={{ background: "rgba(0,0,0,0.15)", borderRadius: 12, padding: "10px 14px" }}>
+                  <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(220,245,230,0.4)", marginBottom: 4 }}>Location</p>
+                  <p style={{ fontSize: 13, fontWeight: 600 }}>📍 {selectedSchedule.location}</p>
+                </div>
+              )}
+
+              {selectedSchedule.remarks && (
+                <div style={{ background: "rgba(0,0,0,0.15)", borderRadius: 12, padding: "10px 14px" }}>
+                  <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(220,245,230,0.4)", marginBottom: 4 }}>Remarks</p>
+                  <p style={{ fontSize: 12, color: "rgba(220,245,230,0.7)", lineHeight: 1.6 }}>📝 {selectedSchedule.remarks}</p>
+                </div>
+              )}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+                <button onClick={() => openEdit(selectedSchedule)} className="btn-outline" style={{ width: "100%", padding: "9px 0", fontSize: 12 }}>
+                  ✏️ Edit
+                </button>
+                <button onClick={() => toggleDone(selectedSchedule.id)} className="btn-primary" style={{ width: "100%", padding: "10px 0", fontSize: 12 }}>
+                  {selectedSchedule.done ? "↩ Mark as Pending" : "✓ Mark as Done"}
+                </button>
+                <button onClick={() => deleteSchedule(selectedSchedule.id)} className="btn-danger" style={{ width: "100%", padding: "8px 0", fontSize: 12 }}>
+                  🗑 Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1249,6 +1588,7 @@ export default function EBBernasPortal() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [caseStore, setCaseStore] = useState(INIT_CASES);
   const [currentUser, setCurrentUser] = useState(null);
+  const [schedules, setSchedules] = useState([]);
 
   const handleLogout = () => setCurrentUser(null);
 
@@ -1257,7 +1597,8 @@ export default function EBBernasPortal() {
   const isAdmin = currentUser.role === "admin";
 
   const menus = [
-    { id: "overview", label: "Overview" },
+    { id: "overview", label: "🏢 Overview" },
+    { id: "schedule", label: "📅 Schedule" },
     { id: "dashboard", label: "Client Dashboard" },
     { id: "cases", label: "Assigned Cases" },
     { id: "documents", label: "Documents & Folders" },
@@ -1419,7 +1760,8 @@ export default function EBBernasPortal() {
           </aside>
 
           <main className="content">
-            {activeMenu === "overview" && <OverviewPage />}
+            {activeMenu === "overview" && <OverviewPage caseStore={caseStore} />}
+            {activeMenu === "schedule" && <SchedulePage schedules={schedules} setSchedules={setSchedules} />}
             {activeMenu === "dashboard" && <DashboardPage client={selectedClient} caseStore={caseStore} setCaseStore={setCaseStore} />}
             {activeMenu === "cases" && <CasesPage setClient={setSelectedClient} setMenu={setMenu} search={search} setSearch={setSearch} />}
             {activeMenu === "documents" && <DocumentsPage client={selectedClient} />}
