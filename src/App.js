@@ -838,7 +838,7 @@ function SchedulePage({ schedules, setSchedules }) {
   };
 
   const saveSchedule = () => {
-    if (!form.title.trim() || !form.date) return;
+    if ((!form.title.trim() && !form.lotNo.trim()) || !form.date) return;
     if (editingId) {
       setSchedules(p => p.map(s => s.id === editingId ? { ...s, ...form } : s));
       setEditingId(null);
@@ -936,15 +936,11 @@ function SchedulePage({ schedules, setSchedules }) {
             <button onClick={() => { setShowAdd(false); setEditingId(null); setForm({ title: "", client: "", type: "Survey", surveyType: "", lotNo: "", date: "", time: "", location: "", contact: "", remarks: "" }); }} className="btn-outline" style={{ fontSize: 12 }}>✕ Cancel</button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <input value={form.title} onChange={(e) => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Title / Description *" style={inputSt} />
-            <input value={form.client} onChange={(e) => setForm(p => ({ ...p, client: e.target.value }))} placeholder="Client Name (optional)" style={inputSt} />
-
-            {/* Event Type */}
+            <input value={form.lotNo} onChange={(e) => setForm(p => ({ ...p, lotNo: e.target.value }))} placeholder="Lot No. *" style={inputSt} />
+            <input value={form.client} onChange={(e) => setForm(p => ({ ...p, client: e.target.value }))} placeholder="Client Name" style={inputSt} />
             <select value={form.type} onChange={(e) => setForm(p => ({ ...p, type: e.target.value }))} style={inputSt}>
               {types.map(t => <option key={t}>{t}</option>)}
             </select>
-
-            {/* Survey Type — only show when type is Survey */}
             {form.type === "Survey" ? (
               <select value={form.surveyType} onChange={(e) => setForm(p => ({ ...p, surveyType: e.target.value }))} style={inputSt}>
                 <option value="">-- Kind of Survey --</option>
@@ -961,12 +957,11 @@ function SchedulePage({ schedules, setSchedules }) {
             ) : (
               <input value={form.location} onChange={(e) => setForm(p => ({ ...p, location: e.target.value }))} placeholder="Location (optional)" style={inputSt} />
             )}
-
-            <input value={form.lotNo} onChange={(e) => setForm(p => ({ ...p, lotNo: e.target.value }))} placeholder="Lot No. (optional)" style={inputSt} />
             <input value={form.contact} onChange={(e) => setForm(p => ({ ...p, contact: e.target.value }))} placeholder="Contact No. (optional)" style={inputSt} />
             {form.type === "Survey" && (
               <input value={form.location} onChange={(e) => setForm(p => ({ ...p, location: e.target.value }))} placeholder="Location (optional)" style={inputSt} />
             )}
+            <input value={form.title} onChange={(e) => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Title / Description (optional)" style={inputSt} />
             <input type="date" value={form.date} onChange={(e) => setForm(p => ({ ...p, date: e.target.value }))} style={inputSt} />
             <input type="time" value={form.time} onChange={(e) => setForm(p => ({ ...p, time: e.target.value }))} style={inputSt} />
             <input value={form.remarks} onChange={(e) => setForm(p => ({ ...p, remarks: e.target.value }))} placeholder="Remarks / Notes" style={{ ...inputSt, gridColumn: "1 / -1" }} />
