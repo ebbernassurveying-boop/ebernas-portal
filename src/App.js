@@ -1831,7 +1831,7 @@ export default function EBBernasPortal() {
                 <p className="brand-sup">E.B. Bernas Land Consultancy</p>
                 <p className="brand-name">EB BERNAS PORTAL V1</p>
                 <p className="brand-addr">No. 051, Brgy. Garrita, Bani, Pangasinan</p>
-                <p style={{ fontSize: 9, color: "rgba(220,245,230,0.3)", marginTop: 1 }}>v1.0.5 — Jun 22, 2026</p>
+                <p style={{ fontSize: 9, color: "rgba(220,245,230,0.3)", marginTop: 1 }}>v1.0.7 — Jun 22, 2026</p>
               </div>
             </div>
             <div className="header-actions">
@@ -1892,4 +1892,3 @@ export default function EBBernasPortal() {
     </>
   );
 }
- 
