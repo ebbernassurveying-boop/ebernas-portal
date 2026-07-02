@@ -1,10 +1,5 @@
-import React, { useState, useRef } from "react";
-
-// ── LOCALSTORAGE HELPERS ───────────────────────────────────────────────────────
-const LS = {
-  get: (key, def) => { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } },
-  set: (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} },
-};
+import React, { useState, useRef, useEffect } from "react";
+import { db, listenSchedules, saveSchedule, deleteScheduleDB, listenEmployees, saveEmployeeDB, updateEmployeeDB, deleteEmployeeDB, listenCases, saveCase } from "./firebase";
 
 // ── AUTH ───────────────────────────────────────────────────────────────────────
 const ADMIN_ACCOUNTS = [
@@ -12,20 +7,23 @@ const ADMIN_ACCOUNTS = [
   { email: "admin2@ebernas.com", password: "Admin2026!", name: "Admin 2", role: "admin" },
 ];
 
-function getEmployees() { return LS.get("eb_employees", []); }
-function saveEmployees(list) { LS.set("eb_employees", list); }
-
-function findUser(email, password) {
-  const all = [...ADMIN_ACCOUNTS, ...getEmployees()];
-  return all.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password) || null;
+async function findUser(email, password) {
+  const admins = ADMIN_ACCOUNTS.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+  if (admins) return admins;
+  // Check Firebase employees
+  const { getDocs, collection } = await import("firebase/firestore");
+  const snap = await getDocs(collection(db, "employees"));
+  const emps = snap.docs.map(d => d.data());
+  return emps.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password && u.approved) || null;
 }
 
-function registerEmployee(name, email, password) {
-  const all = [...ADMIN_ACCOUNTS, ...getEmployees()];
-  if (all.find((u) => u.email.toLowerCase() === email.toLowerCase())) return { error: "Email already registered." };
-  const emps = getEmployees();
-  emps.push({ email, password, name, role: "employee", approved: false, registeredAt: new Date().toLocaleDateString("en-PH") });
-  saveEmployees(emps);
+async function registerEmployee(name, email, password) {
+  const { getDocs, collection } = await import("firebase/firestore");
+  const snap = await getDocs(collection(db, "employees"));
+  const emps = snap.docs.map(d => d.data());
+  const allEmails = [...ADMIN_ACCOUNTS.map(a => a.email), ...emps.map(e => e.email)];
+  if (allEmails.find(e => e.toLowerCase() === email.toLowerCase())) return { error: "Email already registered." };
+  await saveEmployeeDB({ email, password, name, role: "employee", approved: false, registeredAt: new Date().toLocaleDateString("en-PH") });
   return { success: true };
 }
 
@@ -39,29 +37,25 @@ function AuthPage({ onLogin }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) { setError("Ilagay ang email at password."); return; }
     setLoading(true); setError("");
-    setTimeout(() => {
-      const user = findUser(email, password);
-      setLoading(false);
-      if (!user) { setError("Mali ang email o password. Subukan ulit."); return; }
-      if (user.role === "employee" && !user.approved) { setError("Hindi pa approved ang iyong account. Antayin ang Admin."); return; }
-      onLogin({ email: user.email, role: user.role, displayName: user.name });
-    }, 600);
+    const user = await findUser(email, password);
+    setLoading(false);
+    if (!user) { setError("Mali ang email o password. Subukan ulit."); return; }
+    if (user.role === "employee" && !user.approved) { setError("Hindi pa approved ang iyong account. Antayin ang Admin."); return; }
+    onLogin({ email: user.email, role: user.role, displayName: user.name });
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!email || !password || !name) { setError("Punan ang lahat ng fields."); return; }
     if (password.length < 6) { setError("Password — minimum 6 characters."); return; }
     setLoading(true); setError("");
-    setTimeout(() => {
-      const result = registerEmployee(name, email, password);
-      setLoading(false);
-      if (result.error) { setError(result.error); return; }
-      setSuccess("✓ Account created! Hintayin ang Admin approval bago makapag-login.");
-      setMode("login"); setPassword(""); setEmail(""); setName("");
-    }, 600);
+    const result = await registerEmployee(name, email, password);
+    setLoading(false);
+    if (result.error) { setError(result.error); return; }
+    setSuccess("✓ Account created! Hintayin ang Admin approval bago makapag-login.");
+    setMode("login"); setPassword(""); setEmail(""); setName("");
   };
 
   return (
@@ -1585,18 +1579,19 @@ function FormsPage({ caseStore }) {
 
 // ── ADMIN PANEL ───────────────────────────────────────────────────────────────
 function AdminPanel() {
-  const [employees, setEmployees] = useState(getEmployees());
+  const [employees, setEmployees] = useState([]);
 
-  const refresh = () => setEmployees(getEmployees());
+  useEffect(() => {
+    const unsub = listenEmployees(setEmployees);
+    return () => unsub();
+  }, []);
 
-  const approve = (email) => {
-    const list = getEmployees().map(e => e.email === email ? { ...e, approved: true } : e);
-    saveEmployees(list); refresh();
+  const approve = async (email) => {
+    await updateEmployeeDB(email, { approved: true });
   };
 
-  const reject = (email) => {
-    const list = getEmployees().filter(e => e.email !== email);
-    saveEmployees(list); refresh();
+  const reject = async (email) => {
+    await deleteEmployeeDB(email);
   };
 
   const pending = employees.filter(e => !e.approved);
@@ -1688,25 +1683,48 @@ export default function EBBernasPortal() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
 
-  // ── PERSISTENT STATE via localStorage ──
-  const [caseStore, setCaseStoreRaw] = useState(() => LS.get("eb_cases", INIT_CASES));
-  const [schedules, setSchedulesRaw] = useState(() => LS.get("eb_schedules", []));
+  // ── FIREBASE REAL-TIME STATE ──
+  const [caseStore, setCaseStoreRaw] = useState(INIT_CASES);
+  const [schedules, setSchedulesRaw] = useState([]);
 
-  const setCaseStore = (val) => {
+  // Listen to Firebase in real-time
+  useEffect(() => {
+    const unsubSchedules = listenSchedules(setSchedulesRaw);
+    const unsubCases = listenCases((data) => {
+      setCaseStoreRaw(prev => ({ ...INIT_CASES, ...data }));
+    });
+    return () => { unsubSchedules(); unsubCases(); };
+  }, []);
+
+  const setCaseStore = async (val) => {
     const next = typeof val === "function" ? val(caseStore) : val;
     setCaseStoreRaw(next);
-    LS.set("eb_cases", next);
+    // Save each client to Firebase
+    for (const [clientName, clientData] of Object.entries(next)) {
+      await saveCase(clientName, clientData);
+    }
   };
 
-  const setSchedules = (val) => {
+  const setSchedules = async (val) => {
     const next = typeof val === "function" ? val(schedules) : val;
-    setSchedulesRaw(next);
-    LS.set("eb_schedules", next);
+    // Firebase handles state via listener — just sync changes
+    const prevIds = schedules.map(s => s.id);
+    const nextIds = next.map(s => s.id);
+    // Find deleted
+    for (const id of prevIds) {
+      if (!nextIds.includes(id)) await deleteScheduleDB(id);
+    }
+    // Find added/updated
+    for (const s of next) {
+      if (!prevIds.includes(s.id) || JSON.stringify(schedules.find(x => x.id === s.id)) !== JSON.stringify(s)) {
+        await saveSchedule(s);
+      }
+    }
   };
 
   const handleLogout = () => setCurrentUser(null);
 
-  if (!currentUser) return <AuthPage onLogin={setCurrentUser} />;
+  if (!currentUser) return <AuthPage onLogin={(user) => setCurrentUser(user)} />;
 
   const isAdmin = currentUser.role === "admin";
 
