@@ -3755,6 +3755,18 @@ export default function EBBernasPortal() {
 
   // ── FIREBASE REAL-TIME STATE ──
   const [caseStore, setCaseStoreRaw] = useState(INIT_CASES);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
   const [schedules, setSchedulesRaw] = useState([]);
   const [allEmployees, setAllEmployeesRaw] = useState([]);
   const [profilesMap, setProfilesMap] = useState({});
@@ -3790,15 +3802,14 @@ export default function EBBernasPortal() {
   const setCaseStore = async (val) => {
     const next = typeof val === "function" ? val(caseStore) : val;
     setCaseStoreRaw(next);
-    // Save each client to Firebase — laktawan ang blangkong keys, huwag huminto sa error
-    for (const [clientName, clientData] of Object.entries(next)) {
-      if (!clientName || !clientName.trim()) continue; // skip blank/whitespace keys
-      try {
-        await saveCase(clientName, clientData);
-      } catch (e) {
-        console.error("saveCase failed for", clientName, e);
-      }
-    }
+    // Fire lahat ng saves nang PARALLEL (hindi sequential await).
+    // Importante ito para OFFLINE: kung sequential, na-stuck sa unang case
+    // (di natatapos ang setDoc offline) kaya di na-queue ang iba. Ngayon,
+    // agad na-queue lahat sa Firestore cache; awtomatikong mag-sasync online.
+    Object.entries(next).forEach(([clientName, clientData]) => {
+      if (!clientName || !clientName.trim()) return; // skip blank keys
+      saveCase(clientName, clientData).catch((e) => console.error("saveCase failed for", clientName, e));
+    });
   };
 
   const setSchedules = async (val) => {
@@ -3950,6 +3961,11 @@ export default function EBBernasPortal() {
       `}</style>
 
       <div className="portal">
+        {!isOnline && (
+          <div style={{ background: "rgba(251,191,36,0.15)", borderBottom: "1px solid rgba(251,191,36,0.4)", color: "#fbbf24", textAlign: "center", padding: "8px 12px", fontSize: 12, fontWeight: 700 }}>
+            📴 Offline ka ngayon — patuloy kang makakapag-edit. Awtomatikong mag-sasync pagbalik ng internet.
+          </div>
+        )}
         <header className="portal-header">
           <div className="header-inner">
             <div className="brand">
@@ -3963,6 +3979,15 @@ export default function EBBernasPortal() {
               </div>
             </div>
             <div className="header-actions">
+              {/* Sync status badge */}
+              <div title={isOnline ? "Online — naka-sync ang data" : "Offline — mase-save lokal, mag-sasync pagbalik ng net"}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, whiteSpace: "nowrap",
+                  background: isOnline ? "rgba(52,211,153,0.12)" : "rgba(251,191,36,0.12)",
+                  border: isOnline ? "1px solid rgba(52,211,153,0.35)" : "1px solid rgba(251,191,36,0.4)",
+                  color: isOnline ? "#34d399" : "#fbbf24" }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: isOnline ? "#34d399" : "#fbbf24", boxShadow: isOnline ? "0 0 6px #34d399" : "0 0 6px #fbbf24" }} />
+                {isOnline ? "Naka-sync" : "Offline"}
+              </div>
               <div style={{ fontSize: 12, color: "rgba(220,245,230,0.6)", textAlign: "right" }}>
                 <p className="user-display-name" style={{ fontWeight: 600, color: "#e8f5ee" }}>{currentUser.displayName}</p>
                 <p style={{ fontSize: 10, color: isAdmin ? "#fbbf24" : "#34d399" }}>{isAdmin ? "👑 Admin" : "👤 Employee"}</p>
