@@ -370,11 +370,13 @@ function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, se
   const getCaseStatus = (data) => {
     if (!data) return "not_surveyed";
     const steps = data.trackerSteps || {};
-    if (!steps.survey_done?.done) return "not_surveyed";
     const key = resolveTrackerKey(data);
-    const trackerSteps = APPROVAL_STEPS[key] || [];
+    const trackerSteps = (Array.isArray(data.customSteps) && data.customSteps.length) ? data.customSteps : (APPROVAL_STEPS[key] || []);
     if (!trackerSteps.length) return "process";
-    // "Done" kung LAHAT ng steps ng resolved tracker ay tapos na (100% COMPLETED)
+    const firstStep = trackerSteps[0];
+    // not_surveyed kung hindi pa done ang unang step (hal. Survey Done)
+    if (firstStep && !steps[firstStep.id]?.done) return "not_surveyed";
+    // "Done" kung LAHAT ng steps ay tapos na (100% COMPLETED)
     const allDone = trackerSteps.every(s => steps[s.id]?.done);
     if (allDone) return "done";
     // "Pending" kung may pending flag na naghihintay pa SA IYO na aksyunan:
@@ -978,11 +980,28 @@ function DebouncedField({ value, onCommit, multiline = false, ...rest }) {
   );
 }
 
-function ApprovalTrackerCard({ client, data, setCaseStore }) {
+function ApprovalTrackerCard({ client, data, setCaseStore, isAdmin = false }) {
   const trackerKey = resolveTrackerKey(data);
-  const steps = APPROVAL_STEPS[trackerKey] || [];
+  const defaultSteps = APPROVAL_STEPS[trackerKey] || [];
+  // Gumamit ng custom steps kung na-edit; kung wala, default para sa tracker type
+  const steps = (Array.isArray(data.customSteps) && data.customSteps.length) ? data.customSteps : defaultSteps;
   const trackerData = data?.trackerSteps || {};
   const [expandedStep, setExpandedStep] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [draftSteps, setDraftSteps] = useState(steps);
+
+  const saveCustomSteps = async (newSteps) => {
+    const newData = { ...data, customSteps: newSteps };
+    setCaseStore(p => ({ ...p, [client]: newData }));
+    try { await saveCase(client, newData); } catch (e) { console.error(e); }
+  };
+  const resetToDefault = async () => {
+    const newData = { ...data };
+    delete newData.customSteps;
+    setCaseStore(p => ({ ...p, [client]: newData }));
+    try { await saveCase(client, newData); } catch (e) { console.error(e); }
+    setEditMode(false);
+  };
 
   const toggleStep = async (stepId) => {
     const current = trackerData[stepId] || {};
@@ -1075,6 +1094,13 @@ function ApprovalTrackerCard({ client, data, setCaseStore }) {
           <h3 className="section-title">📊 Process Steps</h3>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {isAdmin && (
+            <button onClick={() => { setDraftSteps(steps); setEditMode(!editMode); }}
+              style={{ fontSize: 11, fontWeight: 700, padding: "7px 12px", borderRadius: 999, border: editMode ? "none" : "1px solid rgba(96,165,250,0.4)", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+                background: editMode ? "#60a5fa" : "transparent", color: editMode ? "#0a1a13" : "#60a5fa" }}>
+              {editMode ? "✖ Isara" : "✏️ Edit Steps"}
+            </button>
+          )}
           <button onClick={broadcastUpdate} disabled={updStatus === "sending"}
             style={{ fontSize: 11, fontWeight: 700, padding: "7px 14px", borderRadius: 999, border: "none", cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", whiteSpace: "nowrap",
               background: updStatus === "sent" ? "rgba(52,211,153,0.2)" : "#fbbf24", color: updStatus === "sent" ? "#34d399" : "#0a1a13", opacity: updStatus === "sending" ? 0.6 : 1 }}>
@@ -1086,6 +1112,46 @@ function ApprovalTrackerCard({ client, data, setCaseStore }) {
           </div>
         </div>
       </div>
+
+      {/* ── EDIT STEPS PANEL (admin) ── */}
+      {editMode && (
+        <div style={{ background: "rgba(96,165,250,0.06)", border: "1px solid rgba(96,165,250,0.25)", borderRadius: 14, padding: 14, marginBottom: 18 }}>
+          <p style={{ fontSize: 11, fontWeight: 800, color: "#60a5fa", marginBottom: 4 }}>✏️ I-edit ang Process Steps</p>
+          <p style={{ fontSize: 10, color: "rgba(220,245,230,0.4)", marginBottom: 12 }}>
+            Iba ang haba ng proseso ng Titled vs Untitled/Tax Dec — pwede mong baguhin dito. Ang mga steps na ito ay para sa case na ito lang.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+            {draftSteps.map((s, i) => (
+              <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start", background: "rgba(0,0,0,0.15)", borderRadius: 10, padding: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingTop: 2 }}>
+                  <button onClick={() => { if (i === 0) return; const d = [...draftSteps]; [d[i-1], d[i]] = [d[i], d[i-1]]; setDraftSteps(d); }} disabled={i === 0}
+                    style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", color: i === 0 ? "rgba(255,255,255,0.15)" : "#60a5fa", fontSize: 12, padding: 0, lineHeight: 1 }}>▲</button>
+                  <button onClick={() => { if (i === draftSteps.length-1) return; const d = [...draftSteps]; [d[i+1], d[i]] = [d[i], d[i+1]]; setDraftSteps(d); }} disabled={i === draftSteps.length-1}
+                    style={{ background: "none", border: "none", cursor: i === draftSteps.length-1 ? "default" : "pointer", color: i === draftSteps.length-1 ? "rgba(255,255,255,0.15)" : "#60a5fa", fontSize: 12, padding: 0, lineHeight: 1 }}>▼</button>
+                </div>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
+                  <input value={s.label} onChange={e => { const d = [...draftSteps]; d[i] = { ...d[i], label: e.target.value }; setDraftSteps(d); }}
+                    placeholder="Pangalan ng step (hal. 📤 Submitted sa CENRO)" style={{ width: "100%", background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, color: "#e8f5ee", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+                  <input value={s.detail || ""} onChange={e => { const d = [...draftSteps]; d[i] = { ...d[i], detail: e.target.value }; setDraftSteps(d); }}
+                    placeholder="Detalye (optional)" style={{ width: "100%", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "5px 10px", fontSize: 11, color: "rgba(220,245,230,0.7)", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+                </div>
+                <button onClick={() => setDraftSteps(draftSteps.filter((_, idx) => idx !== i))}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(251,113,133,0.6)", fontSize: 15, padding: "2px 4px" }}>🗑</button>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => setDraftSteps([...draftSteps, { id: "step_" + Date.now(), label: "🆕 Bagong Step", detail: "" }])}
+            style={{ width: "100%", fontSize: 12, fontWeight: 700, padding: "8px 0", borderRadius: 10, border: "1px dashed rgba(96,165,250,0.4)", cursor: "pointer", fontFamily: "inherit", background: "transparent", color: "#60a5fa", marginBottom: 12 }}>
+            ➕ Magdagdag ng Step
+          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={async () => { await saveCustomSteps(draftSteps); setEditMode(false); }}
+              style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "10px 0", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit", background: "#34d399", color: "#0a1a13" }}>💾 I-save ang Steps</button>
+            <button onClick={resetToDefault}
+              style={{ fontSize: 12, fontWeight: 700, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", cursor: "pointer", fontFamily: "inherit", background: "transparent", color: "rgba(220,245,230,0.7)" }}>↺ Default</button>
+          </div>
+        </div>
+      )}
       <div className="progress-track" style={{ marginBottom: 20 }}>
         <div className="progress-fill" style={{ width: `${pct}%`, background: isCompleted ? "#34d399" : "#fbbf24" }} />
       </div>
@@ -1664,6 +1730,7 @@ function DashboardPage({ client: clientProp, caseStore, setCaseStore, currentUse
   // pumili ng unang may-pangalang case — para hindi masave ang edits sa blangkong "" key.
   const client = (clientProp && caseStore[clientProp]) ? clientProp : (Object.keys(caseStore).find(k => k.trim()) || clientProp || "");
   const data = caseStore[client] || {};
+  const isAdmin = currentUser?.role === "admin" || currentUser?.email === "e.b.bernassurveying@gmail.com";
 
   if (!data.checklist) {
     return <Card><div style={{ textAlign: "center", padding: "48px 0", color: "rgba(220,245,230,0.3)" }}>
@@ -1766,7 +1833,7 @@ function DashboardPage({ client: clientProp, caseStore, setCaseStore, currentUse
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-        <ApprovalTrackerCard client={client} data={data} setCaseStore={setCaseStore} />
+        <ApprovalTrackerCard client={client} data={data} setCaseStore={setCaseStore} isAdmin={isAdmin} />
         <CaseTimelineCard client={client} data={data} setCaseStore={setCaseStore} />
         <ClientSmsCard client={client} data={data} currentUser={currentUser} />
 
