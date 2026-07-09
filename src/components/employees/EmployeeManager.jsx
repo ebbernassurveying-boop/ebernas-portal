@@ -62,12 +62,14 @@ export default function EmployeeManager({ currentUser }) {
       mobile: emp.mobile || profile.mobile || "",
       name: emp.name || profile.name || emp.fullName || "",
       position: emp.position || profile.position || "",
+      workType: emp.workType || profile.workType || "",
     };
   });
 
   const approve = (email) => { updateEmployeeDB(email, { approved: true }); };
   const reject = (email) => { deleteEmployeeDB(email); };
   const setRole = (email, role) => { updateEmployeeDB(email, { role }); };
+  const setWorkType = (email, workType) => { updateEmployeeDB(email, { workType }); };
 
   const handleSave = (data) => {
     const docKey = data.email?.trim() || data.employeeId || `EMP-${Date.now()}`;
@@ -149,6 +151,41 @@ export default function EmployeeManager({ currentUser }) {
               onProfile={handleProfile}
               onEdit={handleEdit}
             />
+          </Card>
+
+          <Card>
+            <p className="emp-eyebrow" style={{ marginBottom: 4 }}>Notification Routing</p>
+            <h3 className="emp-section-title" style={{ marginBottom: 6 }}>📡 Work Type ng bawat Staff</h3>
+            <p style={{ fontSize: 12, color: "rgba(220,245,230,0.5)", marginBottom: 14, lineHeight: 1.5 }}>
+              Dito nakabase kung sino tumatanggap ng anong Telegram message:<br/>
+              🏞️ <b>Field</b> → schedule + contact ng client · 🏢 <b>Office</b> → case/pending/plans · 👑 <b>Team Leader</b> → lahat
+            </p>
+            {approved.length === 0 ? (
+              <p style={{ fontSize: 13, color: "rgba(220,245,230,0.3)", textAlign: "center", padding: "12px 0" }}>Walang approved na empleyado.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {approved.map(emp => {
+                  const wt = (emp.workType || "").toLowerCase();
+                  const cur = wt === "field" ? "field" : wt === "teamleader" || wt === "team leader" || wt === "both" ? "teamleader" : wt === "office" ? "office" : "";
+                  const badge = cur === "field" ? { t: "🏞️ Field", c: "#60a5fa" } : cur === "teamleader" ? { t: "👑 Team Leader", c: "#a78bfa" } : cur === "office" ? { t: "🏢 Office", c: "#34d399" } : { t: "— Wala pa (default: Office)", c: "rgba(220,245,230,0.4)" };
+                  return (
+                    <div key={emp.email} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", borderRadius: 12, background: "rgba(0,0,0,0.15)", border: "1px solid rgba(255,255,255,0.06)", flexWrap: "wrap" }}>
+                      <div style={{ flex: 1, minWidth: 160 }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#e8f5ee" }}>{emp.name || emp.fullName || emp.email}</p>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: badge.c, marginTop: 2 }}>{badge.t}{emp.telegramChatId ? "" : " · ⚠️ walang Telegram"}</p>
+                      </div>
+                      <select value={cur} onChange={e => setWorkType(emp.email, e.target.value)}
+                        style={{ background: "#0f2318", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "7px 10px", fontSize: 12, color: "#e8f5ee", fontFamily: "inherit", cursor: "pointer", outline: "none" }}>
+                        <option value="">— Piliin —</option>
+                        <option value="field">🏞️ Field</option>
+                        <option value="office">🏢 Office</option>
+                        <option value="teamleader">👑 Team Leader (lahat)</option>
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </Card>
 
           <Card>
