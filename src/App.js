@@ -2341,7 +2341,12 @@ function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setAct
     setFinanceSaving(false);
   };
 
-  const filtered = schedules.filter(s => filter === "All" || s.type === filter);
+  // Agent: sarili niyang clients lang ang schedules na makikita sa lists.
+  // (caseStore ay naka-scope na sa agent's clients kapag agent.)
+  const agentClientNames = new Set(Object.keys(caseStore || {}).map(k => caseClientName(k).toLowerCase().trim()));
+  const isOwnSched = (s) => !isAgent || agentClientNames.has((s.client || "").toLowerCase().trim());
+
+  const filtered = schedules.filter(s => (filter === "All" || s.type === filter) && isOwnSched(s));
   const upcoming = filtered.filter(s => !s.done && s.date >= today).sort((a, b) => a.date.localeCompare(b.date));
   const past = filtered.filter(s => s.done || s.date < today).sort((a, b) => b.date.localeCompare(a.date));
 
@@ -2597,13 +2602,16 @@ function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setAct
                 onMouseOver={(e) => e.currentTarget.style.background = isToday ? "rgba(52,211,153,0.14)" : "rgba(255,255,255,0.05)"}
                 onMouseOut={(e) => e.currentTarget.style.background = isToday ? "rgba(52,211,153,0.08)" : "rgba(0,0,0,0.1)"}>
                 <p style={{ fontSize: 11, fontWeight: isToday ? 800 : 500, color: isToday ? "#34d399" : "rgba(220,245,230,0.6)", marginBottom: 3 }}>{day}</p>
-                {dayScheds.slice(0,2).map(s => (
-                  <div key={s.id} onClick={() => !isAgent && setSelectedSchedule(s)}
-                    style={{ fontSize: 9, borderRadius: 4, padding: "2px 4px", marginBottom: 2, background: isAgent ? "rgba(251,113,133,0.18)" : typeColor(s.type) + "22", color: isAgent ? "#fb7185" : typeColor(s.type), fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", cursor: isAgent ? "default" : "pointer" }}>
-                    {isAgent ? "🔴 OCCUPIED" : `${typeIcon(s.type)} ${s.title}`}
+                {dayScheds.slice(0,2).map(s => {
+                  const mask = isAgent && !isOwnSched(s); // ibang client → OCCUPIED
+                  return (
+                  <div key={s.id} onClick={() => !mask && setSelectedSchedule(s)}
+                    style={{ fontSize: 9, borderRadius: 4, padding: "2px 4px", marginBottom: 2, background: mask ? "rgba(251,113,133,0.18)" : typeColor(s.type) + "22", color: mask ? "#fb7185" : typeColor(s.type), fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", cursor: mask ? "default" : "pointer" }}>
+                    {mask ? "🔴 OCCUPIED" : `${typeIcon(s.type)} ${s.title}`}
                   </div>
-                ))}
-                {dayScheds.length > 2 && <p style={{ fontSize: 9, color: "rgba(220,245,230,0.4)", cursor: "pointer" }} onClick={() => !isAgent && setSelectedSchedule(dayScheds[2])}>+{dayScheds.length-2} {isAgent ? "occupied" : "more"}</p>}
+                  );
+                })}
+                {dayScheds.length > 2 && <p style={{ fontSize: 9, color: "rgba(220,245,230,0.4)", cursor: "pointer" }} onClick={() => { const s = dayScheds[2]; if (!(isAgent && !isOwnSched(s))) setSelectedSchedule(s); }}>+{dayScheds.length-2} more</p>}
               </div>
             );
           })}
@@ -2722,16 +2730,16 @@ function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setAct
             <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#34d399", marginBottom: 10 }}>Upcoming</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {upcoming.map(s => (
-                <div key={s.id} onClick={() => !isAgent && setSelectedSchedule(s)}
-                  style={{ display: "flex", alignItems: "center", gap: 12, borderRadius: 14, border: selectedSchedule?.id === s.id ? `1.5px solid ${typeColor(s.type)}` : `1px solid ${typeColor(s.type)}33`, background: selectedSchedule?.id === s.id ? `${typeColor(s.type)}18` : `${typeColor(s.type)}0a`, padding: "12px 16px", cursor: isAgent ? "default" : "pointer", transition: "all 0.15s" }}>
-                  <span style={{ fontSize: 18 }}>{isAgent ? "🔴" : typeIcon(s.type)}</span>
+                <div key={s.id} onClick={() => setSelectedSchedule(s)}
+                  style={{ display: "flex", alignItems: "center", gap: 12, borderRadius: 14, border: selectedSchedule?.id === s.id ? `1.5px solid ${typeColor(s.type)}` : `1px solid ${typeColor(s.type)}33`, background: selectedSchedule?.id === s.id ? `${typeColor(s.type)}18` : `${typeColor(s.type)}0a`, padding: "12px 16px", cursor: "pointer", transition: "all 0.15s" }}>
+                  <span style={{ fontSize: 18 }}>{typeIcon(s.type)}</span>
                   <div style={{ flex: 1 }}>
-                    <p style={{ fontWeight: 700, fontSize: 13 }}>{isAgent ? "OCCUPIED / Booked" : s.title}</p>
+                    <p style={{ fontWeight: 700, fontSize: 13 }}>{s.title}</p>
                     <p style={{ fontSize: 11, color: "rgba(220,245,230,0.5)", marginTop: 2 }}>
-                      📅 {fmtDate(s.date)}{s.time && " · ⏰ " + s.time}{!isAgent && s.client && " · 👤 " + s.client}
+                      📅 {fmtDate(s.date)}{s.time && " · ⏰ " + s.time}{s.client && " · 👤 " + s.client}
                     </p>
                   </div>
-                  <span style={{ fontSize: 11, color: typeColor(s.type), fontWeight: 600 }}>{isAgent ? "Occupied" : s.type}</span>
+                  <span style={{ fontSize: 11, color: typeColor(s.type), fontWeight: 600 }}>{s.type}</span>
                 </div>
               ))}
             </div>
