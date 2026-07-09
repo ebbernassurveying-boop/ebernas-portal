@@ -377,9 +377,11 @@ function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, se
     // "Done" kung LAHAT ng steps ng resolved tracker ay tapos na (100% COMPLETED)
     const allDone = trackerSteps.every(s => steps[s.id]?.done);
     if (allDone) return "done";
-    // "Pending" kung may pending flag: RO status = Pending/For Compliance/For Resubmission,
-    // O may nakalagay na pendingReason sa kahit anong step. Kung wala, "On Process".
+    // "Pending" kung may pending flag na naghihintay pa SA IYO na aksyunan:
+    // RO status = Pending/For Compliance/For Resubmission, O may pendingReason.
+    // Pero kung "Resubmitted" na (naghihintay na sa Region) → "On Process".
     const monitoring = steps.monitoring || {};
+    if (monitoring.approvalRemarks === "Resubmitted") return "process";
     const pendingRemark = ["Pending", "For Compliance", "For Resubmission"].includes(monitoring.approvalRemarks);
     const hasPendingReason = Object.values(steps).some(s => s && typeof s.pendingReason === "string" && s.pendingReason.trim());
     return (pendingRemark || hasPendingReason) ? "pending" : "process";
@@ -1167,11 +1169,12 @@ function ApprovalTrackerCard({ client, data, setCaseStore }) {
                       <option value="Pending">⏳ Pending</option>
                       <option value="For Compliance">⚠️ For Compliance</option>
                       <option value="For Resubmission">🔄 For Resubmission</option>
+                      <option value="Resubmitted">📤 Resubmitted (naghihintay sa Region)</option>
                       <option value="Approved">✅ Approved</option>
                     </select>
                     {sd.approvalRemarks && (
-                      <p style={{ fontSize: 11, marginTop: 4, fontWeight: 700, color: sd.approvalRemarks === "Approved" ? "#34d399" : sd.approvalRemarks === "Pending" ? "#fbbf24" : "#fb7185" }}>
-                        {sd.approvalRemarks === "Approved" ? "✅" : sd.approvalRemarks === "Pending" ? "⏳" : "⚠️"} {sd.approvalRemarks}
+                      <p style={{ fontSize: 11, marginTop: 4, fontWeight: 700, color: sd.approvalRemarks === "Approved" ? "#34d399" : sd.approvalRemarks === "Resubmitted" ? "#60a5fa" : sd.approvalRemarks === "Pending" ? "#fbbf24" : "#fb7185" }}>
+                        {sd.approvalRemarks === "Approved" ? "✅" : sd.approvalRemarks === "Resubmitted" ? "📤" : sd.approvalRemarks === "Pending" ? "⏳" : "⚠️"} {sd.approvalRemarks}
                       </p>
                     )}
                   </div>
@@ -1221,6 +1224,51 @@ function ApprovalTrackerCard({ client, data, setCaseStore }) {
                       {sd.resubmitDate && <p style={{ fontSize: 11, color: "#60a5fa", marginTop: 3 }}>🔄 Re-submit: {fmtDate(sd.resubmitDate)}</p>}
                     </div>
                   )}
+
+                  {/* ── MONITORING LOG (compliance ↔ resubmit cycles) ── */}
+                  <div style={{ borderTop: "1px dashed rgba(255,255,255,0.1)", paddingTop: 10 }}>
+                    <p style={{ fontSize: 10, fontWeight: 800, color: "#60a5fa", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>📋 Monitoring Log (history)</p>
+
+                    {/* Timeline */}
+                    {Array.isArray(sd.monitoringLog) && sd.monitoringLog.length > 0 ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+                        {sd.monitoringLog.map((entry, i) => {
+                          const c = entry.status === "Approved" ? "#34d399" : entry.status === "Resubmitted" ? "#60a5fa" : "#fbbf24";
+                          const ic = entry.status === "Approved" ? "🎉" : entry.status === "Resubmitted" ? "📤" : "⚠️";
+                          return (
+                            <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "6px 10px", borderRadius: 8, background: "rgba(0,0,0,0.15)", borderLeft: `3px solid ${c}` }}>
+                              <span style={{ fontSize: 12 }}>{ic}</span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ fontSize: 11, fontWeight: 700, color: c }}>{entry.status}{entry.date ? ` · ${fmtDate(entry.date)}` : ""}</p>
+                                {entry.note && <p style={{ fontSize: 11, color: "rgba(220,245,230,0.6)", marginTop: 1 }}>{entry.note}</p>}
+                              </div>
+                              <button onClick={(e) => { e.stopPropagation(); const log = [...(sd.monitoringLog || [])]; log.splice(i, 1); setStepField(step.id, "monitoringLog", log); }}
+                                style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(251,113,133,0.5)", fontSize: 12, padding: 0 }}>✕</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: 11, color: "rgba(220,245,230,0.3)", marginBottom: 8 }}>Wala pang log. Mag-add ng update sa ibaba. ↓</p>
+                    )}
+
+                    {/* Add to log — kinukuha ang kasalukuyang Status + Remarks/Reason + Date */}
+                    <button onClick={(e) => {
+                      e.stopPropagation();
+                      const status = sd.approvalRemarks || "Update";
+                      const note = (sd.pendingReason || sd.monitoringNotes || "").trim();
+                      const date = sd.remarksDate || sd.resubmitDate || new Date().toISOString().slice(0, 10);
+                      const entry = { status, note, date, loggedAt: new Date().toLocaleDateString("en-PH") };
+                      const log = [...(sd.monitoringLog || []), entry];
+                      setStepField(step.id, "monitoringLog", log);
+                    }} disabled={!sd.approvalRemarks}
+                      style={{ fontSize: 11, fontWeight: 700, padding: "7px 14px", borderRadius: 999, border: "none", cursor: sd.approvalRemarks ? "pointer" : "not-allowed", fontFamily: "inherit", background: sd.approvalRemarks ? "#60a5fa" : "rgba(255,255,255,0.1)", color: sd.approvalRemarks ? "#0a1a13" : "rgba(220,245,230,0.4)" }}>
+                      ➕ I-log ang kasalukuyang status
+                    </button>
+                    <p style={{ fontSize: 9, color: "rgba(220,245,230,0.35)", marginTop: 5, lineHeight: 1.4 }}>
+                      Piliin muna ang Status sa itaas (hal. For Compliance o Resubmitted) + note/date, tapos pindutin ito para maitala sa history.
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -1297,6 +1345,100 @@ function SurveyRequirementsCard({ data, client, toggle, addReq, removeReq, updat
 }
 
 // ── CLIENT SMS CARD ───────────────────────────────────────────────────────────
+// ── CASE TIMELINE / MONITORING LOG ───────────────────────────────────────────
+// Buong history ng proseso: CENRO, Survey Authority Approved, Region, compliance
+// cycles (pending/resubmit), atbp. — lahat may petsa, naka-sort chronologically.
+const TIMELINE_PRESETS = [
+  { label: "Na-pasa sa CENRO", icon: "📄", color: "#60a5fa" },
+  { label: "Survey Authority Approved", icon: "✅", color: "#34d399" },
+  { label: "Na-submit sa Region (DENR)", icon: "📤", color: "#60a5fa" },
+  { label: "May Transaction ID na", icon: "🔢", color: "#60a5fa" },
+  { label: "For Compliance / Pending", icon: "⚠️", color: "#fbbf24" },
+  { label: "Resubmitted", icon: "🔄", color: "#60a5fa" },
+  { label: "Approved na!", icon: "🎉", color: "#34d399" },
+  { label: "Custom (iba pa)", icon: "📌", color: "#a78bfa" },
+];
+
+function CaseTimelineCard({ client, data, setCaseStore }) {
+  const log = Array.isArray(data.activityLog) ? data.activityLog : [];
+  const [label, setLabel] = useState(TIMELINE_PRESETS[0].label);
+  const [customLabel, setCustomLabel] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [note, setNote] = useState("");
+
+  const save = async (newLog) => {
+    const newData = { ...data, activityLog: newLog };
+    setCaseStore(p => ({ ...p, [client]: newData }));
+    try { await saveCase(client, newData); } catch (e) { console.error(e); }
+  };
+
+  const addEntry = () => {
+    const finalLabel = label === "Custom (iba pa)" ? (customLabel.trim() || "Custom") : label;
+    if (!date) { alert("Piliin ang petsa."); return; }
+    const preset = TIMELINE_PRESETS.find(p => p.label === label) || { icon: "📌", color: "#a78bfa" };
+    const entry = { id: Date.now().toString(), label: finalLabel, icon: preset.icon, color: preset.color, date, note: note.trim() };
+    save([...log, entry]);
+    setNote(""); setCustomLabel("");
+  };
+
+  const removeEntry = (id) => save(log.filter(e => e.id !== id));
+
+  // Sorted chronologically (pinakaluma → pinakabago)
+  const sorted = [...log].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+  const inputStyle = { width: "100%", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 10px", fontSize: 12, color: "#e8f5ee", fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
+
+  return (
+    <Card>
+      <SectionHeader eyebrow="Monitoring" title="🗓️ Case Timeline / History" />
+
+      {/* Timeline */}
+      {sorted.length === 0 ? (
+        <p style={{ fontSize: 13, color: "rgba(220,245,230,0.3)", textAlign: "center", padding: "16px 0" }}>Wala pang naka-log. Mag-add ng event sa ibaba. ↓</p>
+      ) : (
+        <div style={{ position: "relative", paddingLeft: 20, marginBottom: 18 }}>
+          <div style={{ position: "absolute", left: 6, top: 4, bottom: 4, width: 2, background: "rgba(255,255,255,0.1)" }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {sorted.map((e) => (
+              <div key={e.id} style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: -18, top: 2, width: 12, height: 12, borderRadius: 999, background: e.color, boxShadow: `0 0 6px ${e.color}`, border: "2px solid #0a1a13" }} />
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: e.color }}>{e.icon} {e.label}</p>
+                    <p style={{ fontSize: 11, color: "rgba(220,245,230,0.5)", marginTop: 1 }}>📅 {fmtDate(e.date)}</p>
+                    {e.note && <p style={{ fontSize: 11, color: "rgba(220,245,230,0.7)", marginTop: 3, lineHeight: 1.5 }}>{e.note}</p>}
+                  </div>
+                  <button onClick={() => removeEntry(e.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(251,113,133,0.5)", fontSize: 13 }}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add entry form */}
+      <div style={{ background: "rgba(0,0,0,0.15)", border: "1px solid rgba(96,165,250,0.2)", borderRadius: 12, padding: 14 }}>
+        <p style={{ fontSize: 11, fontWeight: 800, color: "#60a5fa", marginBottom: 10 }}>➕ Magdagdag ng event</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <select value={label} onChange={e => setLabel(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
+            {TIMELINE_PRESETS.map(p => <option key={p.label} value={p.label} style={{ background: "#0f2318" }}>{p.icon} {p.label}</option>)}
+          </select>
+          {label === "Custom (iba pa)" && (
+            <input value={customLabel} onChange={e => setCustomLabel(e.target.value)} placeholder="Anong event? (hal. Na-pickup ang plan)" style={inputStyle} />
+          )}
+          <div style={{ display: "flex", gap: 8 }}>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+          </div>
+          <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} placeholder="Note / remarks (optional) — hal. sino ang nag-approve, ano ang kulang..." style={{ ...inputStyle, resize: "vertical" }} />
+          <button onClick={addEntry} style={{ fontSize: 12, fontWeight: 700, padding: "9px 0", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit", background: "#60a5fa", color: "#0a1a13" }}>
+            ➕ I-add sa Timeline
+          </button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function ClientSmsCard({ client, data, currentUser }) {
   const [smsLog, setSmsLog] = useState([]);
   const [msgText, setMsgText] = useState("");
@@ -1625,6 +1767,7 @@ function DashboardPage({ client: clientProp, caseStore, setCaseStore, currentUse
 
       <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
         <ApprovalTrackerCard client={client} data={data} setCaseStore={setCaseStore} />
+        <CaseTimelineCard client={client} data={data} setCaseStore={setCaseStore} />
         <ClientSmsCard client={client} data={data} currentUser={currentUser} />
 
         {/* Update Log */}
