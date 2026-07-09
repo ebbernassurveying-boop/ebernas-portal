@@ -373,10 +373,16 @@ function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, se
     if (!steps.survey_done?.done) return "not_surveyed";
     const key = resolveTrackerKey(data);
     const trackerSteps = APPROVAL_STEPS[key] || [];
-    if (!trackerSteps.length) return "pending";
-    // "Done" kung LAHAT ng steps ng resolved tracker ay tapos na (katulad ng 100% COMPLETED)
+    if (!trackerSteps.length) return "process";
+    // "Done" kung LAHAT ng steps ng resolved tracker ay tapos na (100% COMPLETED)
     const allDone = trackerSteps.every(s => steps[s.id]?.done);
-    return allDone ? "done" : "pending";
+    if (allDone) return "done";
+    // "Pending" kung may pending flag: RO status = Pending/For Compliance/For Resubmission,
+    // O may nakalagay na pendingReason sa kahit anong step. Kung wala, "On Process".
+    const monitoring = steps.monitoring || {};
+    const pendingRemark = ["Pending", "For Compliance", "For Resubmission"].includes(monitoring.approvalRemarks);
+    const hasPendingReason = Object.values(steps).some(s => s && typeof s.pendingReason === "string" && s.pendingReason.trim());
+    return (pendingRemark || hasPendingReason) ? "pending" : "process";
   };
 
   const getSurveyLabel = (data) => {
@@ -395,6 +401,7 @@ function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, se
 
   const allClients = Object.entries(caseStore).filter(([k]) => k.trim());
   const surveyedClients = allClients.filter(([, d]) => getCaseStatus(d) !== "not_surveyed");
+  const processClients = surveyedClients.filter(([, d]) => getCaseStatus(d) === "process");
   const pendingClients = surveyedClients.filter(([, d]) => getCaseStatus(d) === "pending");
   const doneClients = surveyedClients.filter(([, d]) => getCaseStatus(d) === "done");
 
@@ -407,8 +414,9 @@ function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, se
       </div>
 
       {/* ── STATS CARDS ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 14 }}>
         <div className="stat-card"><span className="stat-icon">📅</span><p className="stat-value">{totalSchedules}</p><p className="stat-label">Total Schedules</p></div>
+        <div className="stat-card"><span className="stat-icon">🔄</span><p className="stat-value" style={{ color: "#60a5fa" }}>{processClients.length}</p><p className="stat-label">On Process</p></div>
         <div className="stat-card"><span className="stat-icon">⏳</span><p className="stat-value" style={{ color: "#fbbf24" }}>{pendingClients.length}</p><p className="stat-label">Cases Pending</p></div>
         <div className="stat-card"><span className="stat-icon">✅</span><p className="stat-value" style={{ color: "#34d399" }}>{doneClients.length}</p><p className="stat-label">Cases Done</p></div>
         <div className="stat-card"><span className="stat-icon">👥</span><p className="stat-value">{allClients.length}</p><p className="stat-label">Active Clients</p></div>
@@ -476,24 +484,29 @@ function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, se
           const totalSteps = (APPROVAL_STEPS[trackerKey] || []).length;
           const doneSteps = (APPROVAL_STEPS[trackerKey] || []).filter(s => steps[s.id]?.done).length;
           const pct = totalSteps ? Math.round((doneSteps / totalSteps) * 100) : 0;
-          return (
-            <div key={name} onClick={() => setActiveMenu("dashboard")} className="case-table-row" style={{ display: "grid", gridTemplateColumns: isAdmin ? "2fr 1.5fr 1fr 1fr 36px" : "2fr 1.5fr 1fr 1fr", gap: 8, padding: "10px 12px", borderRadius: 12, background: status === "done" ? "rgba(52,211,153,0.04)" : "rgba(251,191,36,0.03)", border: status === "done" ? "1px solid rgba(52,211,153,0.15)" : "1px solid rgba(251,191,36,0.12)", cursor: "pointer", transition: "all 0.15s" }}
-              onMouseOver={e => e.currentTarget.style.background = status === "done" ? "rgba(52,211,153,0.08)" : "rgba(251,191,36,0.07)"}
-              onMouseOut={e => e.currentTarget.style.background = status === "done" ? "rgba(52,211,153,0.04)" : "rgba(251,191,36,0.03)"}>
+            const st = {
+              done:    { bg: "rgba(52,211,153,0.04)", bgHover: "rgba(52,211,153,0.08)", border: "rgba(52,211,153,0.15)", pillBg: "rgba(52,211,153,0.15)", color: "#34d399", label: "✅ Done" },
+              pending: { bg: "rgba(251,191,36,0.03)", bgHover: "rgba(251,191,36,0.07)", border: "rgba(251,191,36,0.12)", pillBg: "rgba(251,191,36,0.15)", color: "#fbbf24", label: "⏳ Pending" },
+              process: { bg: "rgba(96,165,250,0.03)", bgHover: "rgba(96,165,250,0.07)", border: "rgba(96,165,250,0.12)", pillBg: "rgba(96,165,250,0.15)", color: "#60a5fa", label: "🔄 On Process" },
+            }[status] || { bg: "rgba(96,165,250,0.03)", bgHover: "rgba(96,165,250,0.07)", border: "rgba(96,165,250,0.12)", pillBg: "rgba(96,165,250,0.15)", color: "#60a5fa", label: "🔄 On Process" };
+            return (
+            <div key={name} onClick={() => setActiveMenu("dashboard")} className="case-table-row" style={{ display: "grid", gridTemplateColumns: isAdmin ? "2fr 1.5fr 1fr 1fr 36px" : "2fr 1.5fr 1fr 1fr", gap: 8, padding: "10px 12px", borderRadius: 12, background: st.bg, border: `1px solid ${st.border}`, cursor: "pointer", transition: "all 0.15s" }}
+              onMouseOver={e => e.currentTarget.style.background = st.bgHover}
+              onMouseOut={e => e.currentTarget.style.background = st.bg}>
               <div>
                 <p style={{ fontSize: 13, fontWeight: 700 }}>{caseClientName(name)}</p>
                 {(data.lotNo || parseCaseKey(name).lot) && <p style={{ fontSize: 10, color: "rgba(220,245,230,0.4)", marginTop: 2 }}>🏷️ {data.lotNo || parseCaseKey(name).lot}</p>}
               </div>
               <p className="case-table-survey-type" style={{ fontSize: 12, color: "rgba(220,245,230,0.7)", alignSelf: "center" }}>{getSurveyLabel(data)}</p>
               <div style={{ alignSelf: "center" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: status === "done" ? "rgba(52,211,153,0.15)" : "rgba(251,191,36,0.15)", color: status === "done" ? "#34d399" : "#fbbf24" }}>
-                  {status === "done" ? "✅ Done" : "⏳ Pending"}
+                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: st.pillBg, color: st.color }}>
+                  {st.label}
                 </span>
               </div>
               <div style={{ alignSelf: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <div style={{ flex: 1, height: 5, borderRadius: 4, background: "rgba(255,255,255,0.1)", overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? "#34d399" : "#fbbf24", borderRadius: 4 }} />
+                    <div style={{ height: "100%", width: `${pct}%`, background: st.color, borderRadius: 4 }} />
                   </div>
                   <span style={{ fontSize: 10, color: "rgba(220,245,230,0.5)", minWidth: 28 }}>{pct}%</span>
                 </div>
@@ -530,8 +543,11 @@ function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, se
               </div>
             </div>
 
-            {/* Pending/Done counts for visible group */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            {/* On Process/Pending/Done counts for visible group */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 11, background: "rgba(96,165,250,0.12)", border: "1px solid rgba(96,165,250,0.25)", borderRadius: 20, padding: "3px 10px", color: "#60a5fa", fontWeight: 700 }}>
+                🔄 {visibleClients.filter(([,d]) => getCaseStatus(d) === "process").length} On Process
+              </span>
               <span style={{ fontSize: 11, background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.25)", borderRadius: 20, padding: "3px 10px", color: "#fbbf24", fontWeight: 700 }}>
                 ⏳ {visibleClients.filter(([,d]) => getCaseStatus(d) === "pending").length} Pending
               </span>
@@ -561,10 +577,13 @@ function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, se
                 );
                 // Render Pending + Case Done sub-groups for a set of clients
                 const renderStatusGroups = (clients, keyPrefix) => {
+                  const processRows = clients.filter(([, d]) => getCaseStatus(d) === "process");
                   const pendingRows = clients.filter(([, d]) => getCaseStatus(d) === "pending");
                   const doneRows = clients.filter(([, d]) => getCaseStatus(d) === "done");
                   return (
                     <React.Fragment key={keyPrefix}>
+                      {processRows.length > 0 && subHeader(`🔄 On Process (${processRows.length})`, "#60a5fa")}
+                      {processRows.map(renderRow)}
                       {pendingRows.length > 0 && subHeader(`⏳ Pending (${pendingRows.length})`, "#fbbf24")}
                       {pendingRows.map(renderRow)}
                       {doneRows.length > 0 && subHeader(`✅ Case Done (${doneRows.length})`, "#34d399")}
