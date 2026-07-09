@@ -3,6 +3,7 @@ import { db, listenSchedules, saveSchedule, deleteScheduleDB, saveEmployeeDB, li
 import { collection, onSnapshot, doc, setDoc } from "firebase/firestore";
 import EmployeeManager from "./components/employees/EmployeeManager";
 import BIRCalculatorPage from "./components/bir/BIRCalculatorPage";
+import AgentsPage from "./components/agents/AgentsPage";
 import FinancePage from "./components/finance/FinancePage";
 
 // ── SMS UTILITY ──────────────────────────────────────────────────────────────
@@ -1751,6 +1752,10 @@ function DashboardPage({ client: clientProp, caseStore, setCaseStore, currentUse
                   <input value={data.propertyLocation || ""} onChange={(e) => setField("propertyLocation", e.target.value, "Property Location")} className="form-input" style={{ marginTop: 6 }} placeholder="Property Location" />
                 </div>
                 <div className="info-block" style={{ gridColumn: "1 / -1" }}>
+                  <p className="info-label">👤 Agent</p>
+                  <input value={data.agent || ""} onChange={(e) => setField("agent", e.target.value, "Agent")} className="form-input" style={{ marginTop: 6 }} placeholder="Sino ang agent / nag-refer" />
+                </div>
+                <div className="info-block" style={{ gridColumn: "1 / -1" }}>
                   <p className="info-label">📱 Contact Number</p>
                   <input value={data.contact || ""} onChange={(e) => setField("contact", e.target.value, "Contact")} className="form-input" style={{ marginTop: 6 }} placeholder="Contact Number" />
                 </div>
@@ -3276,7 +3281,7 @@ function MessagingPage({ globalEmployees = [] }) {
 // ── NEW CASE ───────────────────────────────────────────────────────────────────
 function NewCasePage({ caseStore, setCaseStore, setActiveMenu, setSelectedClient, isAdmin, currentUser }) {
   const [service, setService] = useState("Subdivision – Titled Property");
-  const [form, setForm] = useState({ client: "", ref: "", contact: "", email: "", location: "", lot: "", titleNo: "", dateOfSurvey: "", dateOfSubmittal: "", remarks: "" });
+  const [form, setForm] = useState({ client: "", ref: "", contact: "", email: "", location: "", lot: "", titleNo: "", agent: "", dateOfSurvey: "", dateOfSubmittal: "", remarks: "" });
   const [justCreated, setJustCreated] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
@@ -3291,6 +3296,7 @@ function NewCasePage({ caseStore, setCaseStore, setActiveMenu, setSelectedClient
       caseType: service,
       lotNo: form.lot,
       titleNo: form.titleNo,
+      agent: form.agent || "",
       propertyLocation: form.location,
       contact: form.contact,
       email: form.email,
@@ -3353,6 +3359,7 @@ function NewCasePage({ caseStore, setCaseStore, setActiveMenu, setSelectedClient
             <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Property Location" className="form-input" />
             <input value={form.lot} onChange={(e) => setForm({ ...form, lot: e.target.value })} placeholder="Lot No." className="form-input" />
             <input value={form.titleNo} onChange={(e) => setForm({ ...form, titleNo: e.target.value })} placeholder="TCT / TD No. (optional)" className="form-input" />
+            <input value={form.agent} onChange={(e) => setForm({ ...form, agent: e.target.value })} placeholder="👤 Agent (sino nagdala/nag-refer)" className="form-input" />
             <div style={{ gridColumn: "1 / -1" }}>
               <p className="info-label" style={{ marginBottom: 8 }}>Service Type</p>
               <select value={service} onChange={(e) => setService(e.target.value)} className="form-input">
@@ -4055,6 +4062,7 @@ export default function EBBernasPortal() {
     { id: "newcase", label: "Create New Case" },
     { id: "forms", label: "📋 Forms Generator" },
     { id: "birtax", label: "🧮 BIR Tax Calculator" },
+    { id: "agents", label: "👥 Agents" },
     { id: "profile", label: "👤 My Profile" },
     ...(isAdmin ? [
       { id: "finance", label: "💰 Finance & Payroll" },
@@ -4293,6 +4301,7 @@ export default function EBBernasPortal() {
             {activeMenu === "newcase" && <NewCasePage caseStore={caseStore} setCaseStore={setCaseStore} setActiveMenu={setActiveMenu} setSelectedClient={setSelectedClient} isAdmin={isAdmin} currentUser={currentUser} />}
             {activeMenu === "forms" && <FormsPage caseStore={caseStore} />}
             {activeMenu === "birtax" && <BIRCalculatorPage isAdmin={isAdmin} />}
+            {activeMenu === "agents" && <AgentsPage caseStore={caseStore} setActiveMenu={setActiveMenu} setSelectedClient={setSelectedClient} caseClientName={caseClientName} parseCaseKey={parseCaseKey} resolveTrackerKey={resolveTrackerKey} />}
             {activeMenu === "admin" && isAdmin && <EmployeeManager currentUser={currentUser} />}
             {activeMenu === "finance" && isAdmin && <FinancePage isAdmin={isAdmin} currentUser={currentUser} globalEmployees={allEmployeesMerged} schedules={schedules} />}
             {activeMenu === "profile" && <MyProfilePage currentUser={currentUser} onUpdate={handleUpdateProfile} />}
