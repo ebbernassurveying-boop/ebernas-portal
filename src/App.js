@@ -1648,6 +1648,7 @@ function DashboardPage({ client: clientProp, caseStore, setCaseStore, currentUse
   const client = (clientProp && caseStore[clientProp]) ? clientProp : (Object.keys(caseStore).find(k => k.trim()) || clientProp || "");
   const data = caseStore[client] || {};
   const isAdmin = currentUser?.role === "admin" || currentUser?.email === "e.b.bernassurveying@gmail.com";
+  const [editInfo, setEditInfo] = useState(false);
 
   if (!data.checklist) {
     return <Card><div style={{ textAlign: "center", padding: "48px 0", color: "rgba(220,245,230,0.3)" }}>
@@ -1704,15 +1705,46 @@ function DashboardPage({ client: clientProp, caseStore, setCaseStore, currentUse
         <Card>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 20 }}>
             <div><p className="eyebrow">Client Case Dashboard</p><h3 className="section-title">{caseClientName(client)}{(data?.lotNo || parseCaseKey(client).lot) ? <span style={{ fontSize: 14, color: "#34d399", fontWeight: 700 }}> · 🏷️ Lot {data?.lotNo || parseCaseKey(client).lot}</span> : null}</h3></div>
-            <Badge label={data.caseType} variant="badge-amber" />
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {isAdmin && (
+                <button onClick={() => setEditInfo(!editInfo)}
+                  style={{ fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 999, border: editInfo ? "none" : "1px solid rgba(96,165,250,0.4)", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", background: editInfo ? "#34d399" : "transparent", color: editInfo ? "#0a1a13" : "#60a5fa" }}>
+                  {editInfo ? "✓ Tapos" : "✏️ Edit"}
+                </button>
+              )}
+              <Badge label={data.caseType} variant="badge-amber" />
+            </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <InfoBlock label="Lot Number" value={data.lotNo} />
-            <InfoBlock label="Overall Status" value={data.overallStatus} />
-            <div className="info-block" style={{ gridColumn: "1 / -1" }}>
-              <p className="info-label">Property Location</p>
-              <p className="info-value">{data.propertyLocation}</p>
-            </div>
+            {editInfo ? (
+              <>
+                <div className="info-block">
+                  <p className="info-label">🏷️ Lot Number</p>
+                  <input value={data.lotNo || ""} onChange={(e) => setField("lotNo", e.target.value, "Lot Number")} className="form-input" style={{ marginTop: 6 }} placeholder="Lot No." />
+                </div>
+                <div className="info-block">
+                  <p className="info-label">Overall Status</p>
+                  <input value={data.overallStatus || ""} onChange={(e) => setField("overallStatus", e.target.value, "Overall Status")} className="form-input" style={{ marginTop: 6 }} placeholder="hal. For Approval" />
+                </div>
+                <div className="info-block" style={{ gridColumn: "1 / -1" }}>
+                  <p className="info-label">📍 Property Location</p>
+                  <input value={data.propertyLocation || ""} onChange={(e) => setField("propertyLocation", e.target.value, "Property Location")} className="form-input" style={{ marginTop: 6 }} placeholder="Property Location" />
+                </div>
+                <div className="info-block" style={{ gridColumn: "1 / -1" }}>
+                  <p className="info-label">📱 Contact Number</p>
+                  <input value={data.contact || ""} onChange={(e) => setField("contact", e.target.value, "Contact")} className="form-input" style={{ marginTop: 6 }} placeholder="Contact Number" />
+                </div>
+              </>
+            ) : (
+              <>
+                <InfoBlock label="Lot Number" value={data.lotNo} />
+                <InfoBlock label="Overall Status" value={data.overallStatus} />
+                <div className="info-block" style={{ gridColumn: "1 / -1" }}>
+                  <p className="info-label">Property Location</p>
+                  <p className="info-value">{data.propertyLocation}</p>
+                </div>
+              </>
+            )}
             {/* Trans ID — show prominently if available */}
             {(() => {
               const transStep = data.trackerSteps?.trans_id;
