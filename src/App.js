@@ -1074,11 +1074,13 @@ function ApprovalTrackerCard({ client, data, setCaseStore, isAdmin = false }) {
   const [savedFlash, setSavedFlash] = useState(false);
   const flashSaved = () => { setSavedFlash(true); setTimeout(() => setSavedFlash(false), 2000); };
 
-  // Shared: send message to admin chat + all employees with connected Telegram
-  const broadcastToTeam = async (msg) => {
-    // 1) Send sa admin chat (Engr. Bernas)
+  // Shared: send message to admin + employees, naka-route base sa workType.
+  // audience: "office" (case/pending/plans) | "field" (schedule) | "all"
+  // Tumatanggap: office → Office + Team Leader; field → Field + Team Leader; all → lahat.
+  const broadcastToTeam = async (msg, audience = "all") => {
+    // 1) Send sa admin chat (Engr. Bernas) — laging tumatanggap
     await sendTelegram(msg);
-    // 2) Send sa lahat ng employees na may connected Telegram
+    // 2) Send sa mga employees base sa workType
     const { getDocs, collection } = await import("firebase/firestore");
     const [empSnap, profSnap] = await Promise.all([
       getDocs(collection(db, "employees")),
@@ -1086,9 +1088,19 @@ function ApprovalTrackerCard({ client, data, setCaseStore, isAdmin = false }) {
     ]);
     const profiles = {};
     profSnap.docs.forEach(d => { const p = d.data(); if (p.email) profiles[p.email] = p; });
+    const wantsMsg = (wt) => {
+      const t = (wt || "").toLowerCase();
+      if (audience === "all") return true;
+      if (t === "teamleader" || t === "team leader" || t === "both") return true; // team leader = lahat
+      if (audience === "office") return t === "office" || t === "" ; // walang set → default office
+      if (audience === "field") return t === "field";
+      return false;
+    };
     const chatIds = new Set();
     empSnap.docs.forEach(d => {
       const emp = d.data();
+      const workType = emp.workType || profiles[emp.email]?.workType || "";
+      if (!wantsMsg(workType)) return;
       const cid = emp.telegramChatId || profiles[emp.email]?.telegramChatId || "";
       if (cid) chatIds.add(String(cid).trim());
     });
@@ -1102,7 +1114,7 @@ function ApprovalTrackerCard({ client, data, setCaseStore, isAdmin = false }) {
     const st = sd.approvalRemarks ? `\nStatus: ${sd.approvalRemarks}` : "";
     const dt = sd.remarksDate ? `\nDate: ${fmtDate(sd.remarksDate)}` : "";
     const msg = `📝 <b>Monitoring Remarks — Regional Office</b>\nClient: ${client}${data?.lotNo ? "\nLot: " + data.lotNo : ""}${st}${dt}\n\nRemarks: ${sd.monitoringNotes}`;
-    try { await broadcastToTeam(msg); setTgStatus("sent"); }
+    try { await broadcastToTeam(msg, "office"); setTgStatus("sent"); }
     catch (err) { console.error("Broadcast error:", err); setTgStatus("sent"); }
     setTimeout(() => setTgStatus(""), 4000);
   };
@@ -1117,7 +1129,7 @@ function ApprovalTrackerCard({ client, data, setCaseStore, isAdmin = false }) {
     const statusLine = monStep?.approvalRemarks ? `\nRO Status: ${monStep.approvalRemarks}` : "";
     const notesLine = monStep?.monitoringNotes ? `\nRemarks: ${monStep.monitoringNotes}` : "";
     const msg = `🔔 <b>Case Update</b>\nClient: ${client}${data?.lotNo ? "\nLot: " + data.lotNo : ""}${data?.propertyLocation ? "\nLocation: " + data.propertyLocation : ""}\n\nProgress: ${pct}% (${doneCount}/${steps.length} steps)${lastDone ? `\n✅ Latest done: ${lastDone.label}` : ""}${currentStep ? `\n⏭️ Next: ${currentStep.label}` : "\n🎉 COMPLETED na lahat ng steps!"}${statusLine}${notesLine}`;
-    try { await broadcastToTeam(msg); setUpdStatus("sent"); }
+    try { await broadcastToTeam(msg, "office"); setUpdStatus("sent"); }
     catch (err) { console.error("Update broadcast error:", err); setUpdStatus("sent"); }
     setTimeout(() => setUpdStatus(""), 4000);
   };
@@ -2166,7 +2178,7 @@ function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setAct
         if (emp.telegramChatId) {
           const lotInfo = form.lotNo ? ` — Lot ${form.lotNo}` : "";
           const dateInfo = form.date ? ` sa ${new Date(form.date+"T00:00:00").toLocaleDateString("en-PH", {month:"long",day:"numeric",year:"numeric"})}` : "";
-          const tgMsg = `📅 <b>Bagong Schedule</b>\nKumusta ${empName}!\n\nMay survey schedule ka${dateInfo}${lotInfo}${form.location ? `\n📍 ${form.location}` : ""}${form.client ? `\n👤 Client: ${form.client}` : ""}\n\nPara sa katanungan: 09176525851`;
+          const tgMsg = `📅 <b>Bagong Schedule</b>\nKumusta ${empName}!\n\nMay survey schedule ka${dateInfo}${lotInfo}${form.location ? `\n📍 ${form.location}` : ""}${form.client ? `\n👤 Client: ${form.client}` : ""}${form.contact ? `\n📱 Contact ng client: ${form.contact}` : ""}\n\nPara sa katanungan: 09176525851`;
           try {
             await fetch("/api/send-telegram-user", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ chatId: emp.telegramChatId, message: tgMsg }) });
           } catch {}
