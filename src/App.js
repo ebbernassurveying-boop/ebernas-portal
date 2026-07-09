@@ -1063,6 +1063,7 @@ function ApprovalTrackerCard({ client, data, setCaseStore, isAdmin = false }) {
     const newData = { ...data, trackerSteps: updated };
     setCaseStore(p => ({ ...p, [client]: newData }));
     await saveCase(client, newData);
+    flashSaved();
     // Telegram notification
     const stepLabel = steps.find(s => s.id === stepId)?.label || stepId;
     if (nowDone) sendTelegram(`📊 <b>Tracker Step Done</b>\nClient: ${client}\nStep: ${stepLabel}`);
@@ -1070,6 +1071,8 @@ function ApprovalTrackerCard({ client, data, setCaseStore, isAdmin = false }) {
 
   const [tgStatus, setTgStatus] = useState(""); // "" | "sending" | "sent" | "error" (remarks button)
   const [updStatus, setUpdStatus] = useState(""); // header "Send Update" button
+  const [savedFlash, setSavedFlash] = useState(false);
+  const flashSaved = () => { setSavedFlash(true); setTimeout(() => setSavedFlash(false), 2000); };
 
   // Shared: send message to admin chat + all employees with connected Telegram
   const broadcastToTeam = async (msg) => {
@@ -1125,7 +1128,7 @@ function ApprovalTrackerCard({ client, data, setCaseStore, isAdmin = false }) {
     const newData = { ...data, trackerSteps: updated };
     setCaseStore(p => ({ ...p, [client]: newData }));
     await saveCase(client, newData);
-    // Telegram notification for approval status change
+    flashSaved();
     if (field === "approvalRemarks" && val) {
       const emoji = val === "Approved" ? "✅" : val === "Pending" ? "⏳" : "⚠️";
       sendTelegram(`${emoji} <b>Approval Status Updated</b>\nClient: ${client}\nStatus: ${val}`);
@@ -1147,6 +1150,11 @@ function ApprovalTrackerCard({ client, data, setCaseStore, isAdmin = false }) {
           <h3 className="section-title">📊 Process Steps</h3>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {savedFlash && (
+            <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#34d399", background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.35)", borderRadius: 999, padding: "5px 10px", whiteSpace: "nowrap" }}>
+              💾 Naka-save!
+            </span>
+          )}
           {isAdmin && (
             <button onClick={() => { setDraftSteps(steps); setEditMode(!editMode); }}
               style={{ fontSize: 11, fontWeight: 700, padding: "7px 12px", borderRadius: 999, border: editMode ? "none" : "1px solid rgba(96,165,250,0.4)", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
