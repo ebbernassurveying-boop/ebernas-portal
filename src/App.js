@@ -54,11 +54,18 @@ const ADMIN_ACCOUNTS = [
 async function findUser(email, password) {
   const admins = ADMIN_ACCOUNTS.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
   if (admins) return admins;
-  // Check Firebase employees
   const { getDocs, collection } = await import("firebase/firestore");
-  const snap = await getDocs(collection(db, "employees"));
-  const emps = snap.docs.map(d => d.data());
-  return emps.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password && u.approved) || null;
+  // Check Firebase employees
+  const empSnap = await getDocs(collection(db, "employees"));
+  const emps = empSnap.docs.map(d => d.data());
+  const emp = emps.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password && u.approved);
+  if (emp) return emp;
+  // Check agents
+  const agSnap = await getDocs(collection(db, "agents"));
+  const agents = agSnap.docs.map(d => d.data());
+  const agent = agents.find(u => (u.username || u.email || "").toLowerCase() === email.toLowerCase() && u.password === password);
+  if (agent) return { ...agent, role: "agent", displayName: agent.name || agent.username, email: agent.username || agent.email };
+  return null;
 }
 
 async function registerEmployee(name, email, password, mobile) {
@@ -3940,6 +3947,7 @@ export default function EBBernasPortal() {
   const [search, setSearch] = useState("");
   const [clientCategory, setClientCategory] = useState("all"); // "all" | "approval" | "field"
   const [quickName, setQuickName] = useState(""); // pinili sa dropdown 1 (client name)
+  const [showChangePw, setShowChangePw] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -4210,6 +4218,7 @@ export default function EBBernasPortal() {
                 <p className="user-display-name" style={{ fontWeight: 600, color: "#e8f5ee" }}>{currentUser.displayName}</p>
                 <p style={{ fontSize: 10, color: isAdmin ? "#fbbf24" : "#34d399" }}>{isAdmin ? "👑 Admin" : "👤 Employee"}</p>
               </div>
+              <button onClick={() => setShowChangePw(true)} className="btn-outline" style={{ fontSize: 11 }} title="Palitan ang password">🔑</button>
               <button onClick={handleLogout} className="btn-outline" style={{ fontSize: 11 }}>Logout</button>
             </div>
           </div>
@@ -4301,13 +4310,96 @@ export default function EBBernasPortal() {
             {activeMenu === "newcase" && <NewCasePage caseStore={caseStore} setCaseStore={setCaseStore} setActiveMenu={setActiveMenu} setSelectedClient={setSelectedClient} isAdmin={isAdmin} currentUser={currentUser} />}
             {activeMenu === "forms" && <FormsPage caseStore={caseStore} />}
             {activeMenu === "birtax" && <BIRCalculatorPage isAdmin={isAdmin} />}
-            {activeMenu === "agents" && <AgentsPage caseStore={caseStore} setActiveMenu={setActiveMenu} setSelectedClient={setSelectedClient} caseClientName={caseClientName} parseCaseKey={parseCaseKey} resolveTrackerKey={resolveTrackerKey} />}
+            {activeMenu === "agents" && <AgentsPage caseStore={caseStore} setActiveMenu={setActiveMenu} setSelectedClient={setSelectedClient} caseClientName={caseClientName} parseCaseKey={parseCaseKey} resolveTrackerKey={resolveTrackerKey} isAdmin={isAdmin} />}
             {activeMenu === "admin" && isAdmin && <EmployeeManager currentUser={currentUser} />}
             {activeMenu === "finance" && isAdmin && <FinancePage isAdmin={isAdmin} currentUser={currentUser} globalEmployees={allEmployeesMerged} schedules={schedules} />}
             {activeMenu === "profile" && <MyProfilePage currentUser={currentUser} onUpdate={handleUpdateProfile} />}
           </main>
         </div>
       </div>
+      {showChangePw && <ChangePasswordModal currentUser={currentUser} onClose={() => setShowChangePw(false)} />}
     </>
+  );
+}
+
+// ── CHANGE PASSWORD MODAL ────────────────────────────────────────────────────
+function ChangePasswordModal({ currentUser, onClose }) {
+  const [oldPw, setOldPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [status, setStatus] = useState(""); // "" | "saving" | "done" | error msg
+  const isHardcodedAdmin = ["e.b.bernassurveying@gmail.com", "admin2@ebernas.com"].includes((currentUser?.email || "").toLowerCase());
+
+  const submit = async () => {
+    if (!oldPw || !newPw || !confirmPw) { setStatus("Punan lahat ng field."); return; }
+    if (newPw !== confirmPw) { setStatus("Hindi magkatugma ang bagong password."); return; }
+    if (newPw.length < 4) { setStatus("Masyadong maikli ang bagong password."); return; }
+    if (isHardcodedAdmin) { setStatus("Ang admin account na ito ay hindi mapapalitan dito (naka-hardcode)."); return; }
+    setStatus("saving");
+    try {
+      const { getDocs, collection, doc, setDoc } = await import("firebase/firestore");
+      // Hanapin sa agents muna, tapos employees
+      const email = (currentUser?.email || "").toLowerCase();
+      let found = false;
+      for (const col of ["agents", "employees"]) {
+        const snap = await getDocs(collection(db, col));
+        for (const d of snap.docs) {
+          const data = d.data();
+          const uname = (data.username || data.email || "").toLowerCase();
+          if (uname === email) {
+            if ((data.password || "") !== oldPw) { setStatus("Mali ang kasalukuyang password."); return; }
+            await setDoc(doc(db, col, d.id), { ...data, password: newPw }, { merge: true });
+            found = true;
+            break;
+          }
+        }
+        if (found) break;
+      }
+      if (!found) { setStatus("Hindi mahanap ang account."); return; }
+      // I-update ang naka-remember na credentials kung meron
+      try {
+        const rem = JSON.parse(localStorage.getItem("ebernas_remember") || "{}");
+        if ((rem.email || "").toLowerCase() === email) {
+          localStorage.setItem("ebernas_remember", JSON.stringify({ email: rem.email, password: newPw }));
+        }
+      } catch {}
+      setStatus("done");
+      setTimeout(onClose, 1500);
+    } catch (e) {
+      console.error(e);
+      setStatus("May error. Subukan ulit.");
+    }
+  };
+
+  const inp = { width: "100%", background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 12px", fontSize: 14, color: "#e8f5ee", fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#0f2318", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 24, padding: 28, maxWidth: 400, width: "100%", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
+        <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#60a5fa", marginBottom: 6 }}>🔑 Security</p>
+        <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Palitan ang Password</h3>
+        <p style={{ fontSize: 12, color: "rgba(220,245,230,0.5)", marginBottom: 18 }}>Account: {currentUser?.email}</p>
+
+        {status === "done" ? (
+          <div style={{ textAlign: "center", padding: "16px 0" }}>
+            <p style={{ fontSize: 40, marginBottom: 8 }}>✅</p>
+            <p style={{ fontSize: 15, fontWeight: 700, color: "#34d399" }}>Napalitan na ang password!</p>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <input type="password" value={oldPw} onChange={e => setOldPw(e.target.value)} placeholder="Kasalukuyang password" style={inp} />
+            <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Bagong password" style={inp} />
+            <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="Ulitin ang bagong password" style={inp} />
+            {status && status !== "saving" && <p style={{ fontSize: 12, color: "#fb7185" }}>{status}</p>}
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: "11px 0" }}>Cancel</button>
+              <button onClick={submit} disabled={status === "saving"} className="btn-primary" style={{ flex: 1, padding: "11px 0", fontWeight: 700 }}>
+                {status === "saving" ? "Sine-save..." : "💾 I-save"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
