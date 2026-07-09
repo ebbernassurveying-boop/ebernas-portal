@@ -3992,6 +3992,14 @@ export default function EBBernasPortal() {
       window.removeEventListener("offline", goOffline);
     };
   }, []);
+
+  // Agent guard: kung nasa hindi-pinapayagang menu, ibalik sa Client Dashboard
+  useEffect(() => {
+    const agentRole = currentUser?.role === "agent";
+    if (agentRole && !["schedule", "dashboard", "forms", "profile"].includes(activeMenu)) {
+      setActiveMenu("dashboard");
+    }
+  }, [currentUser, activeMenu]);
   const [schedules, setSchedulesRaw] = useState([]);
   const [allEmployees, setAllEmployeesRaw] = useState([]);
   const [profilesMap, setProfilesMap] = useState({});
@@ -4092,13 +4100,6 @@ export default function EBBernasPortal() {
   ];
 
   const setMenu = (m) => { setActiveMenu(m); setSidebarOpen(false); };
-
-  // Agent guard: kung nasa hindi-pinapayagang menu, ibalik sa Client Dashboard
-  useEffect(() => {
-    if (isAgent && !["schedule", "dashboard", "forms", "profile"].includes(activeMenu)) {
-      setActiveMenu("dashboard");
-    }
-  }, [isAgent, activeMenu]);
 
   return (
     <>
