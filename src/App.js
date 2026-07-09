@@ -2124,7 +2124,7 @@ function DocumentsPage({ client, isAdmin }) {
 // ── SCHEDULE PAGE ─────────────────────────────────────────────────────────────
 // Map surveyType → caseType for auto-case creation
 
-function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setActiveMenu, setSelectedClient, globalEmployees = [] }) {
+function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setActiveMenu, setSelectedClient, globalEmployees = [], isAgent = false }) {
   const [showAdd, setShowAdd] = useState(false);
   const [filter, setFilter] = useState("All");
   const [form, setForm] = useState({ title: "", client: "", type: "Survey", surveyType: "", lotNo: "", date: "", time: "", location: "", contact: "", remarks: "", assignedEmployees: [] });
@@ -2598,12 +2598,12 @@ function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setAct
                 onMouseOut={(e) => e.currentTarget.style.background = isToday ? "rgba(52,211,153,0.08)" : "rgba(0,0,0,0.1)"}>
                 <p style={{ fontSize: 11, fontWeight: isToday ? 800 : 500, color: isToday ? "#34d399" : "rgba(220,245,230,0.6)", marginBottom: 3 }}>{day}</p>
                 {dayScheds.slice(0,2).map(s => (
-                  <div key={s.id} onClick={() => setSelectedSchedule(s)}
-                    style={{ fontSize: 9, borderRadius: 4, padding: "2px 4px", marginBottom: 2, background: typeColor(s.type) + "22", color: typeColor(s.type), fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", cursor: "pointer" }}>
-                    {typeIcon(s.type)} {s.title}
+                  <div key={s.id} onClick={() => !isAgent && setSelectedSchedule(s)}
+                    style={{ fontSize: 9, borderRadius: 4, padding: "2px 4px", marginBottom: 2, background: isAgent ? "rgba(251,113,133,0.18)" : typeColor(s.type) + "22", color: isAgent ? "#fb7185" : typeColor(s.type), fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", cursor: isAgent ? "default" : "pointer" }}>
+                    {isAgent ? "🔴 OCCUPIED" : `${typeIcon(s.type)} ${s.title}`}
                   </div>
                 ))}
-                {dayScheds.length > 2 && <p style={{ fontSize: 9, color: "rgba(220,245,230,0.4)", cursor: "pointer" }} onClick={() => setSelectedSchedule(dayScheds[2])}>+{dayScheds.length-2} more</p>}
+                {dayScheds.length > 2 && <p style={{ fontSize: 9, color: "rgba(220,245,230,0.4)", cursor: "pointer" }} onClick={() => !isAgent && setSelectedSchedule(dayScheds[2])}>+{dayScheds.length-2} {isAgent ? "occupied" : "more"}</p>}
               </div>
             );
           })}
@@ -2722,16 +2722,16 @@ function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setAct
             <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#34d399", marginBottom: 10 }}>Upcoming</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {upcoming.map(s => (
-                <div key={s.id} onClick={() => setSelectedSchedule(s)}
-                  style={{ display: "flex", alignItems: "center", gap: 12, borderRadius: 14, border: selectedSchedule?.id === s.id ? `1.5px solid ${typeColor(s.type)}` : `1px solid ${typeColor(s.type)}33`, background: selectedSchedule?.id === s.id ? `${typeColor(s.type)}18` : `${typeColor(s.type)}0a`, padding: "12px 16px", cursor: "pointer", transition: "all 0.15s" }}>
-                  <span style={{ fontSize: 18 }}>{typeIcon(s.type)}</span>
+                <div key={s.id} onClick={() => !isAgent && setSelectedSchedule(s)}
+                  style={{ display: "flex", alignItems: "center", gap: 12, borderRadius: 14, border: selectedSchedule?.id === s.id ? `1.5px solid ${typeColor(s.type)}` : `1px solid ${typeColor(s.type)}33`, background: selectedSchedule?.id === s.id ? `${typeColor(s.type)}18` : `${typeColor(s.type)}0a`, padding: "12px 16px", cursor: isAgent ? "default" : "pointer", transition: "all 0.15s" }}>
+                  <span style={{ fontSize: 18 }}>{isAgent ? "🔴" : typeIcon(s.type)}</span>
                   <div style={{ flex: 1 }}>
-                    <p style={{ fontWeight: 700, fontSize: 13 }}>{s.title}</p>
+                    <p style={{ fontWeight: 700, fontSize: 13 }}>{isAgent ? "OCCUPIED / Booked" : s.title}</p>
                     <p style={{ fontSize: 11, color: "rgba(220,245,230,0.5)", marginTop: 2 }}>
-                      📅 {fmtDate(s.date)}{s.time && " · ⏰ " + s.time}{s.client && " · 👤 " + s.client}
+                      📅 {fmtDate(s.date)}{s.time && " · ⏰ " + s.time}{!isAgent && s.client && " · 👤 " + s.client}
                     </p>
                   </div>
-                  <span style={{ fontSize: 11, color: typeColor(s.type), fontWeight: 600 }}>{s.type}</span>
+                  <span style={{ fontSize: 11, color: typeColor(s.type), fontWeight: 600 }}>{isAgent ? "Occupied" : s.type}</span>
                 </div>
               ))}
             </div>
@@ -4058,8 +4058,21 @@ export default function EBBernasPortal() {
 
   const SUPER_ADMIN_EMAIL = "e.b.bernassurveying@gmail.com";
   const isAdmin = currentUser.role === "admin" || currentUser.email === SUPER_ADMIN_EMAIL;
+  const isAgent = currentUser.role === "agent";
+  const agentName = (currentUser.displayName || currentUser.name || "").trim();
 
-  const menus = [
+  // Agent: makikita LANG ang sariling clients (naka-tag sa pangalan ng agent)
+  const scopedCaseStore = isAgent
+    ? Object.fromEntries(Object.entries(caseStore).filter(([, d]) => (d.agent || "").trim().toLowerCase() === agentName.toLowerCase()))
+    : caseStore;
+
+  const menus = isAgent ? [
+    // Restricted menu para sa agent
+    { id: "schedule", label: "📅 Schedule" },
+    { id: "dashboard", label: "Client Dashboard" },
+    { id: "forms", label: "📋 Forms Generator" },
+    { id: "profile", label: "👤 My Profile" },
+  ] : [
     { id: "overview", label: "🏢 Overview" },
     { id: "schedule", label: "📅 Schedule" },
     { id: "dashboard", label: "Client Dashboard" },
@@ -4079,6 +4092,13 @@ export default function EBBernasPortal() {
   ];
 
   const setMenu = (m) => { setActiveMenu(m); setSidebarOpen(false); };
+
+  // Agent guard: kung nasa hindi-pinapayagang menu, ibalik sa Client Dashboard
+  useEffect(() => {
+    if (isAgent && !["schedule", "dashboard", "forms", "profile"].includes(activeMenu)) {
+      setActiveMenu("dashboard");
+    }
+  }, [isAgent, activeMenu]);
 
   return (
     <>
@@ -4216,7 +4236,7 @@ export default function EBBernasPortal() {
               </div>
               <div style={{ fontSize: 12, color: "rgba(220,245,230,0.6)", textAlign: "right" }}>
                 <p className="user-display-name" style={{ fontWeight: 600, color: "#e8f5ee" }}>{currentUser.displayName}</p>
-                <p style={{ fontSize: 10, color: isAdmin ? "#fbbf24" : "#34d399" }}>{isAdmin ? "👑 Admin" : "👤 Employee"}</p>
+                <p style={{ fontSize: 10, color: isAdmin ? "#fbbf24" : isAgent ? "#a78bfa" : "#34d399" }}>{isAdmin ? "👑 Admin" : isAgent ? "🤝 Agent" : "👤 Employee"}</p>
               </div>
               <button onClick={() => setShowChangePw(true)} className="btn-outline" style={{ fontSize: 11 }} title="Palitan ang password">🔑</button>
               <button onClick={handleLogout} className="btn-outline" style={{ fontSize: 11 }}>Logout</button>
@@ -4257,9 +4277,9 @@ export default function EBBernasPortal() {
                 </div>
                 {/* Dropdown 1 — Pangalan lang (walang doble) */}
                 {(() => {
-                  const keys = Object.keys(caseStore).filter(k => {
+                  const keys = Object.keys(scopedCaseStore).filter(k => {
                     if (!k.trim()) return false;
-                    const d = caseStore[k];
+                    const d = scopedCaseStore[k];
                     const isApproval = isApprovalCaseType(d);
                     if (clientCategory === "approval") return isApproval;
                     if (clientCategory === "field") return !isApproval;
@@ -4287,7 +4307,7 @@ export default function EBBernasPortal() {
                           className="search-input" style={{ width: "100%", cursor: "pointer", background: "rgba(96,165,250,0.12)", color: "#60a5fa", fontWeight: 700, border: "1px solid rgba(96,165,250,0.35)" }}>
                           <option value="" style={{ background: "#0f2318" }}>-- Piliin ang Lot ({lotsForName.length}) --</option>
                           {lotsForName.map(k => {
-                            const lot = caseStore[k]?.lotNo || parseCaseKey(k).lot || "Walang lot";
+                            const lot = scopedCaseStore[k]?.lotNo || parseCaseKey(k).lot || "Walang lot";
                             return <option key={k} value={k} style={{ background: "#0f2318", color: "#e8f5ee" }}>🏷️ Lot {lot}</option>;
                           })}
                         </select>
@@ -4300,17 +4320,17 @@ export default function EBBernasPortal() {
           </aside>
 
           <main className="content">
-            {activeMenu === "overview" && <OverviewPage caseStore={caseStore} setCaseStore={setCaseStore} schedules={schedules} currentUser={currentUser} setActiveMenu={setActiveMenu} />}
-            {activeMenu === "schedule" && <SchedulePage schedules={schedules} setSchedules={setSchedules} caseStore={caseStore} setCaseStore={setCaseStore} setActiveMenu={setMenu} setSelectedClient={setSelectedClient} globalEmployees={allEmployeesMerged} />}
-            {activeMenu === "dashboard" && <DashboardPage client={selectedClient} caseStore={caseStore} setCaseStore={setCaseStore} isAdmin={isAdmin} currentUser={currentUser} />}
-            {activeMenu === "cases" && <CasesPage setClient={setSelectedClient} setMenu={setMenu} search={search} setSearch={setSearch} />}
-            {activeMenu === "documents" && <DocumentsPage client={selectedClient} isAdmin={isAdmin} />}
-            {activeMenu === "checklist" && <ChecklistPage client={selectedClient} caseStore={caseStore} setCaseStore={setCaseStore} isAdmin={isAdmin} />}
-            {activeMenu === "messaging" && <MessagingPage globalEmployees={allEmployeesMerged} />}
-            {activeMenu === "newcase" && <NewCasePage caseStore={caseStore} setCaseStore={setCaseStore} setActiveMenu={setActiveMenu} setSelectedClient={setSelectedClient} isAdmin={isAdmin} currentUser={currentUser} />}
-            {activeMenu === "forms" && <FormsPage caseStore={caseStore} />}
-            {activeMenu === "birtax" && <BIRCalculatorPage isAdmin={isAdmin} />}
-            {activeMenu === "agents" && <AgentsPage caseStore={caseStore} setActiveMenu={setActiveMenu} setSelectedClient={setSelectedClient} caseClientName={caseClientName} parseCaseKey={parseCaseKey} resolveTrackerKey={resolveTrackerKey} isAdmin={isAdmin} />}
+            {activeMenu === "overview" && !isAgent && <OverviewPage caseStore={caseStore} setCaseStore={setCaseStore} schedules={schedules} currentUser={currentUser} setActiveMenu={setActiveMenu} />}
+            {activeMenu === "schedule" && <SchedulePage schedules={schedules} setSchedules={setSchedules} caseStore={scopedCaseStore} setCaseStore={setCaseStore} setActiveMenu={setMenu} setSelectedClient={setSelectedClient} globalEmployees={allEmployeesMerged} isAgent={isAgent} />}
+            {activeMenu === "dashboard" && <DashboardPage client={selectedClient} caseStore={scopedCaseStore} setCaseStore={setCaseStore} isAdmin={isAdmin} currentUser={currentUser} />}
+            {activeMenu === "cases" && !isAgent && <CasesPage setClient={setSelectedClient} setMenu={setMenu} search={search} setSearch={setSearch} />}
+            {activeMenu === "documents" && !isAgent && <DocumentsPage client={selectedClient} isAdmin={isAdmin} />}
+            {activeMenu === "checklist" && !isAgent && <ChecklistPage client={selectedClient} caseStore={caseStore} setCaseStore={setCaseStore} isAdmin={isAdmin} />}
+            {activeMenu === "messaging" && !isAgent && <MessagingPage globalEmployees={allEmployeesMerged} />}
+            {activeMenu === "newcase" && !isAgent && <NewCasePage caseStore={caseStore} setCaseStore={setCaseStore} setActiveMenu={setActiveMenu} setSelectedClient={setSelectedClient} isAdmin={isAdmin} currentUser={currentUser} />}
+            {activeMenu === "forms" && <FormsPage caseStore={scopedCaseStore} />}
+            {activeMenu === "birtax" && !isAgent && <BIRCalculatorPage isAdmin={isAdmin} />}
+            {activeMenu === "agents" && !isAgent && <AgentsPage caseStore={caseStore} setActiveMenu={setActiveMenu} setSelectedClient={setSelectedClient} caseClientName={caseClientName} parseCaseKey={parseCaseKey} resolveTrackerKey={resolveTrackerKey} isAdmin={isAdmin} />}
             {activeMenu === "admin" && isAdmin && <EmployeeManager currentUser={currentUser} />}
             {activeMenu === "finance" && isAdmin && <FinancePage isAdmin={isAdmin} currentUser={currentUser} globalEmployees={allEmployeesMerged} schedules={schedules} />}
             {activeMenu === "profile" && <MyProfilePage currentUser={currentUser} onUpdate={handleUpdateProfile} />}
