@@ -2195,6 +2195,19 @@ function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setAct
       const clientInfo = form.client ? ` | Client: ${form.client}` : "";
       const dateInfo = form.date ? ` | Date: ${form.date}` : "";
       sendTelegram(`📅 <b>New Schedule Added</b>\nType: ${form.type}${form.surveyType ? " — " + form.surveyType : ""}${lotInfo}${clientInfo}${dateInfo}${form.location ? "\nLocation: " + form.location : ""}`);
+
+      // AWARENESS: ipaalam din sa Office + Team Leader (para alam nila lahat ng schedule)
+      const dateNice = form.date ? new Date(form.date + "T00:00:00").toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" }) : "";
+      const awarenessMsg = `📅 <b>Bagong Schedule (Awareness)</b>\nType: ${form.type}${form.surveyType ? " — " + form.surveyType : ""}${form.lotNo ? "\n🏷️ Lot " + form.lotNo : ""}${form.client ? "\n👤 Client: " + form.client : ""}${dateNice ? "\n📅 " + dateNice : ""}${form.location ? "\n📍 " + form.location : ""}${form.contact ? "\n📱 Contact: " + form.contact : ""}`;
+      const assignedSet = new Set(assigned);
+      (employees || []).forEach(emp => {
+        const wt = (emp.workType || "").toLowerCase();
+        const isOfficeOrLead = wt === "office" || wt === "teamleader" || wt === "team leader" || wt === "both";
+        if (!isOfficeOrLead) return;
+        if (assignedSet.has(emp.email) || assignedSet.has(emp.id)) return; // naka-assign na (may sariling msg)
+        if (!emp.telegramChatId) return;
+        fetch("/api/send-telegram-user", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chatId: emp.telegramChatId, message: awarenessMsg }) }).catch(() => {});
+      });
     }
   };
 
