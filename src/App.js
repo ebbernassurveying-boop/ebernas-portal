@@ -3628,7 +3628,7 @@ function FormsPage({ caseStore }) {
 
   const Header = () => (
     <div style={{display:"flex",alignItems:"center",gap:16,paddingBottom:10,borderBottom:"2.5px solid #1a4a8a",marginBottom:16}}>
-      <img src={LOGO_SRC} style={{width:72,height:72,objectFit:"contain"}} alt="logo" />
+      <img src={LOGO_SRC} style={{width:110,height:110,objectFit:"contain"}} alt="logo" />
       <div style={{flex:1,textAlign:"center"}}>
         <div style={{fontSize:20,fontWeight:800,color:"#1a4a8a",fontFamily:"serif"}}>E. B. Bernas Land Consultancy</div>
         <div style={{fontSize:13,color:"#333"}}>#051 Garrita, Bani, Pangasinan</div>
@@ -3719,7 +3719,7 @@ function FormsPage({ caseStore }) {
 
         {selClient && (
           <button onClick={() => setShowPreview(true)} className="btn-primary no-print" style={{width:"100%",padding:"12px 0"}}>
-            \u26a1 Generate Form
+            ⚡ Generate Form
           </button>
         )}
       </Card>

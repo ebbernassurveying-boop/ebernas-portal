@@ -5,6 +5,7 @@ const EMPTY_FORM = {
   employeeId: "", fullName: "", position: "", mobile: "",
   email: "", address: "", dateHired: "", status: "Active",
   emergencyContact: "", emergencyNumber: "", notes: "", telegramChatId: "",
+  deviceId: "",
 };
 
 const REQUIRED = ["fullName", "position", "mobile"];
@@ -40,6 +41,7 @@ export default function EmployeeForm({ initial = {}, onSave, onCancel }) {
     { label: "Emergency Contact (optional)", key: "emergencyContact", placeholder: "Name of emergency contact" },
     { label: "Emergency Number (optional)", key: "emergencyNumber", placeholder: "09xxxxxxxxx" },
     { label: "📲 Telegram Chat ID (optional)", key: "telegramChatId", placeholder: "e.g. 7047009376" },
+    { label: "👆 Device ID (Fingerprint)", key: "deviceId", placeholder: "User # sa fingerprint, hal. 1" },
   ];
 
   return (
