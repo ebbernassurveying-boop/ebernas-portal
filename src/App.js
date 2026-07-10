@@ -3774,7 +3774,7 @@ function FormsPage({ caseStore }) {
       )}
 
       {showPreview && selClient && (
-        <div id="print-area" style={{background:"#fff",color:"#000",borderRadius:16,padding:"40px 40px 40px",fontFamily:"serif",fontSize:13,lineHeight:1.7}}>
+        <div id="print-area" style={{background:"#fff",color:"#000",borderRadius:16,padding:"8px 40px 40px",fontFamily:"serif",fontSize:13,lineHeight:1.7}}>
 
           {formType === "survey-notice" && (
             <>
