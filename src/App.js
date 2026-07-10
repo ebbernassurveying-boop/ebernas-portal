@@ -3596,6 +3596,32 @@ function FormsPage({ caseStore }) {
     paymentTerms: "",
   });
   const [showPreview, setShowPreview] = React.useState(false);
+  const [signature, setSignature] = React.useState("");
+  const sigInputRef = React.useRef(null);
+
+  // Load naka-save na signature mula Firebase
+  React.useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "signature"), (snap) => {
+      if (snap.exists()) setSignature(snap.data().image || "");
+    });
+    return () => unsub();
+  }, []);
+
+  // Upload signature: i-convert sa base64, i-save sa Firebase
+  const handleSignatureUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { alert("Image lang po (PNG/JPG)."); return; }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result;
+      try {
+        await setDoc(doc(db, "settings", "signature"), { image: dataUrl, updatedAt: new Date().toISOString() });
+        setSignature(dataUrl);
+      } catch (err) { alert("Hindi ma-save ang signature: " + (err?.message || "")); }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const cd = caseStore[selClient] || {};
   const lotNo = cd?.lotNo || "\u2014";
@@ -3654,6 +3680,14 @@ function FormsPage({ caseStore }) {
             <p className="eyebrow">Forms Generator</p>
             <h3 className="section-title">📋 Auto-fill Forms</h3>
           </div>
+          <div className="no-print" style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            {signature && <img src={signature} alt="sig" style={{height:36,background:"#fff",borderRadius:6,padding:"2px 6px"}}/>}
+            <input ref={sigInputRef} type="file" accept="image/*" onChange={handleSignatureUpload} style={{display:"none"}}/>
+            <button onClick={() => sigInputRef.current?.click()}
+              style={{padding:"8px 14px",borderRadius:10,border:"1px solid rgba(255,255,255,0.15)",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,background:"rgba(255,255,255,0.07)",color:"#e8f5ee"}}>
+              ✍️ {signature ? "Palitan ang Signature" : "Upload Signature"}
+            </button>
+          </div>
         </div>
 
         <div className="no-print" style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
@@ -3675,7 +3709,7 @@ function FormsPage({ caseStore }) {
           </select>
           {selClient && (
             <div style={{marginTop:8,padding:"8px 12px",borderRadius:10,background:"rgba(52,211,153,0.08)",border:"1px solid rgba(52,211,153,0.2)",fontSize:12}}>
-              \u2705 Auto-filled: <strong>{selClient}</strong> \u00b7 Lot {lotNo} \u00b7 {location}
+              ✅ Auto-filled: <strong>{selClient}</strong> · Lot {lotNo} · {location}
             </div>
           )}
         </div>
@@ -3766,7 +3800,7 @@ function FormsPage({ caseStore }) {
               </p>
               <p style={{marginBottom:40}}><strong>Very truly yours;</strong></p>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:40,marginBottom:40}}>
-                <div><div style={{borderTop:"1px solid #000",paddingTop:6,marginTop:50}}><strong>EUGENE BENEDICT C. BERNAS</strong><br/>GEODETIC ENGINEER<br/>LIC. NO. 8835</div></div>
+                <div><div style={{borderTop:"1px solid #000",paddingTop:6,marginTop:50}}>{signature&&<img src={signature} alt="signature" style={{position:"absolute",marginTop:-58,marginLeft:10,height:55,objectFit:"contain"}}/>}<strong>EUGENE BENEDICT C. BERNAS</strong><br/>GEODETIC ENGINEER<br/>LIC. NO. 8835</div></div>
                 <div><div style={{borderTop:"1px solid #000",paddingTop:6,marginTop:50}}><strong>{fields.barangayCaptain||"_______________________"}</strong><br/>BARANGAY CAPTAIN</div></div>
               </div>
               <div>
@@ -3807,7 +3841,8 @@ function FormsPage({ caseStore }) {
               <p style={{paddingLeft:16,marginBottom:16}}>{fields.paymentTerms||`This billing represents ${fields.mobilizationPct}% mobilization payment in accordance with the agreed payment terms for the ${surveyType} project.`}</p>
               <p style={{marginBottom:32}}><strong>TOTAL AMOUNT DUE:</strong> {fmtP(mobilizationAmt)} ({numToWords(mobilizationAmt)})</p>
               <p style={{marginBottom:50}}>Very Truly Yours,</p>
-              <div style={{display:"inline-block",borderTop:"1px solid #000",paddingTop:6}}>
+              <div style={{display:"inline-block",borderTop:"1px solid #000",paddingTop:6,position:"relative"}}>
+                {signature&&<img src={signature} alt="signature" style={{position:"absolute",top:-52,left:10,height:55,objectFit:"contain"}}/>}
                 <strong>EUGENE BENEDICT C. BERNAS</strong><br/>GEODETIC ENGINEER
               </div>
               <Footer />
