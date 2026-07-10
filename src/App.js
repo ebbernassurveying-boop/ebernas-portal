@@ -2174,6 +2174,28 @@ function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setAct
       // Kapag agent ang gumawa, i-tag sa kaniya para makita niya (hindi OCCUPIED)
       const agentTag = isAgent && scheduleAgentName ? { agent: scheduleAgentName } : {};
       await setSchedules(p => [...p, { ...form, ...agentTag, id: Date.now(), done: false }]);
+      // Agent: gumawa ng case (naka-tag sa kaniya) para lumabas sa Client Dashboard niya
+      if (isAgent && scheduleAgentName && form.client && form.client.trim()) {
+        const caseKey = makeCaseKey(form.client, form.lotNo);
+        if (!caseStore[caseKey]) {
+          const agentCase = {
+            caseType: form.surveyType || "Survey",
+            surveyCategory: "", lotNo: form.lotNo || "", agent: scheduleAgentName,
+            propertyLocation: form.location || "", contact: form.contact || "", email: "", ref: "",
+            overallStatus: "Naka-schedule", progress: 0, remarks: form.remarks || "",
+            currentLocation: "Scheduled", dateOfSurvey: form.date || "", dateOfSubmittal: "",
+            missingItems: [], trackerSteps: {},
+            checklist: [
+              { name: "Client Information Form", status: "Pending" },
+              { name: "Property Documents", status: "Pending" },
+              { name: "Valid IDs", status: "Pending" },
+              { name: "Tax Declaration", status: "Pending" },
+            ],
+            folders: [], dateCreated: new Date().toLocaleDateString("en-PH"),
+          };
+          setCaseStore(p => ({ ...p, [caseKey]: agentCase }));
+        }
+      }
     }
     // Send SMS + Telegram to assigned employees
     if (assigned.length > 0) {
