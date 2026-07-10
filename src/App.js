@@ -4107,10 +4107,37 @@ export default function EBBernasPortal() {
   const isAgent = currentUser.role === "agent";
   const agentName = (currentUser.displayName || currentUser.name || "").trim();
 
-  // Agent: makikita LANG ang sariling clients (naka-tag sa pangalan ng agent)
-  const scopedCaseStore = isAgent
-    ? Object.fromEntries(Object.entries(caseStore).filter(([, d]) => (d.agent || "").trim().toLowerCase() === agentName.toLowerCase()))
-    : caseStore;
+  // Agent: makikita LANG ang sariling clients — mula sa cases (naka-tag) AT sa
+  // sarili niyang schedules (kahit wala pang case). Para siguradong lumalabas.
+  const scopedCaseStore = (() => {
+    if (!isAgent) return caseStore;
+    const an = agentName.toLowerCase();
+    const scoped = Object.fromEntries(
+      Object.entries(caseStore).filter(([, d]) => (d.agent || "").trim().toLowerCase() === an)
+    );
+    // Idagdag ang mga client mula sa agent's schedules (kung wala pang case)
+    (schedules || []).forEach(s => {
+      const schedAgent = (s.agent || "").trim().toLowerCase();
+      if (schedAgent !== an) return;
+      if (!s.client || !s.client.trim()) return;
+      const key = makeCaseKey(s.client, s.lotNo);
+      if (!scoped[key]) {
+        scoped[key] = {
+          caseType: s.surveyType || "Survey", surveyCategory: "", lotNo: s.lotNo || "", agent: agentName,
+          propertyLocation: s.location || "", contact: s.contact || "", overallStatus: "Naka-schedule",
+          progress: 0, dateOfSurvey: s.date || "", trackerSteps: {}, missingItems: [],
+          checklist: [
+            { name: "Client Information Form", status: "Pending" },
+            { name: "Property Documents", status: "Pending" },
+            { name: "Valid IDs", status: "Pending" },
+            { name: "Tax Declaration", status: "Pending" },
+          ],
+          folders: [], dateCreated: s.date || "",
+        };
+      }
+    });
+    return scoped;
+  })();
 
   const menus = isAgent ? [
     // Restricted menu para sa agent
