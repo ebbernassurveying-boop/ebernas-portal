@@ -2124,7 +2124,8 @@ function DocumentsPage({ client, isAdmin }) {
 // ── SCHEDULE PAGE ─────────────────────────────────────────────────────────────
 // Map surveyType → caseType for auto-case creation
 
-function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setActiveMenu, setSelectedClient, globalEmployees = [], isAgent = false }) {
+function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setActiveMenu, setSelectedClient, globalEmployees = [], isAgent = false, currentUser = null }) {
+  const scheduleAgentName = (currentUser?.displayName || currentUser?.name || "").trim();
   const [showAdd, setShowAdd] = useState(false);
   const [filter, setFilter] = useState("All");
   const [form, setForm] = useState({ title: "", client: "", type: "Survey", surveyType: "", lotNo: "", date: "", time: "", location: "", contact: "", remarks: "", assignedEmployees: [] });
@@ -2170,7 +2171,9 @@ function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setAct
       await setSchedules(p => p.map(s => s.id === editingId ? { ...s, ...form } : s));
       setEditingId(null);
     } else {
-      await setSchedules(p => [...p, { ...form, id: Date.now(), done: false }]);
+      // Kapag agent ang gumawa, i-tag sa kaniya para makita niya (hindi OCCUPIED)
+      const agentTag = isAgent && scheduleAgentName ? { agent: scheduleAgentName } : {};
+      await setSchedules(p => [...p, { ...form, ...agentTag, id: Date.now(), done: false }]);
     }
     // Send SMS + Telegram to assigned employees
     if (assigned.length > 0) {
@@ -2206,11 +2209,12 @@ function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setAct
       const lotInfo = form.lotNo ? ` | Lot ${form.lotNo}` : "";
       const clientInfo = form.client ? ` | Client: ${form.client}` : "";
       const dateInfo = form.date ? ` | Date: ${form.date}` : "";
-      sendTelegram(`📅 <b>New Schedule Added</b>\nType: ${form.type}${form.surveyType ? " — " + form.surveyType : ""}${lotInfo}${clientInfo}${dateInfo}${form.location ? "\nLocation: " + form.location : ""}`);
+      const agentInfo = (isAgent && scheduleAgentName) ? `\n🤝 Nag-schedule (Agent): ${scheduleAgentName}` : "";
+      sendTelegram(`📅 <b>New Schedule Added</b>\nType: ${form.type}${form.surveyType ? " — " + form.surveyType : ""}${lotInfo}${clientInfo}${dateInfo}${form.location ? "\nLocation: " + form.location : ""}${agentInfo}`);
 
       // AWARENESS: ipaalam din sa Office + Team Leader (para alam nila lahat ng schedule)
       const dateNice = form.date ? new Date(form.date + "T00:00:00").toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" }) : "";
-      const awarenessMsg = `📅 <b>Bagong Schedule (Awareness)</b>\nType: ${form.type}${form.surveyType ? " — " + form.surveyType : ""}${form.lotNo ? "\n🏷️ Lot " + form.lotNo : ""}${form.client ? "\n👤 Client: " + form.client : ""}${dateNice ? "\n📅 " + dateNice : ""}${form.location ? "\n📍 " + form.location : ""}${form.contact ? "\n📱 Contact: " + form.contact : ""}`;
+      const awarenessMsg = `📅 <b>Bagong Schedule (Awareness)</b>\nType: ${form.type}${form.surveyType ? " — " + form.surveyType : ""}${form.lotNo ? "\n🏷️ Lot " + form.lotNo : ""}${form.client ? "\n👤 Client: " + form.client : ""}${dateNice ? "\n📅 " + dateNice : ""}${form.location ? "\n📍 " + form.location : ""}${form.contact ? "\n📱 Contact: " + form.contact : ""}${(isAgent && scheduleAgentName) ? "\n🤝 Agent: " + scheduleAgentName : ""}`;
       const assignedSet = new Set(assigned);
       (employees || []).forEach(emp => {
         const wt = (emp.workType || "").toLowerCase();
@@ -2259,6 +2263,7 @@ function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setAct
           surveyCategory: "",
           surveySubCategory: "",
           lotNo: sched.lotNo || "",
+          agent: sched.agent || "",
           propertyLocation: sched.location || "",
           contact: sched.contact || "",
           email: "",
@@ -2344,7 +2349,9 @@ function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setAct
   // Agent: sarili niyang clients lang ang schedules na makikita sa lists.
   // (caseStore ay naka-scope na sa agent's clients kapag agent.)
   const agentClientNames = new Set(Object.keys(caseStore || {}).map(k => caseClientName(k).toLowerCase().trim()));
-  const isOwnSched = (s) => !isAgent || agentClientNames.has((s.client || "").toLowerCase().trim());
+  const isOwnSched = (s) => !isAgent
+    || (s.agent && s.agent.toLowerCase().trim() === scheduleAgentName.toLowerCase())
+    || agentClientNames.has((s.client || "").toLowerCase().trim());
 
   const filtered = schedules.filter(s => (filter === "All" || s.type === filter) && isOwnSched(s));
   const upcoming = filtered.filter(s => !s.done && s.date >= today).sort((a, b) => a.date.localeCompare(b.date));
@@ -2422,6 +2429,7 @@ function SchedulePage({ schedules, setSchedules, caseStore, setCaseStore, setAct
       surveyCategory: type,
       surveySubCategory: sub || "",
       lotNo: s.lotNo || "",
+      agent: s.agent || "",
       propertyLocation: s.location || "",
       contact: s.contact || "",
       email: "",
@@ -4330,7 +4338,7 @@ export default function EBBernasPortal() {
 
           <main className="content">
             {activeMenu === "overview" && !isAgent && <OverviewPage caseStore={caseStore} setCaseStore={setCaseStore} schedules={schedules} currentUser={currentUser} setActiveMenu={setActiveMenu} />}
-            {activeMenu === "schedule" && <SchedulePage schedules={schedules} setSchedules={setSchedules} caseStore={scopedCaseStore} setCaseStore={setCaseStore} setActiveMenu={setMenu} setSelectedClient={setSelectedClient} globalEmployees={allEmployeesMerged} isAgent={isAgent} />}
+            {activeMenu === "schedule" && <SchedulePage schedules={schedules} setSchedules={setSchedules} caseStore={scopedCaseStore} setCaseStore={setCaseStore} setActiveMenu={setMenu} setSelectedClient={setSelectedClient} globalEmployees={allEmployeesMerged} isAgent={isAgent} currentUser={currentUser} />}
             {activeMenu === "dashboard" && <DashboardPage client={selectedClient} caseStore={scopedCaseStore} setCaseStore={setCaseStore} isAdmin={isAdmin} currentUser={currentUser} />}
             {activeMenu === "cases" && !isAgent && <CasesPage setClient={setSelectedClient} setMenu={setMenu} search={search} setSearch={setSearch} />}
             {activeMenu === "documents" && !isAgent && <DocumentsPage client={selectedClient} isAdmin={isAdmin} />}
