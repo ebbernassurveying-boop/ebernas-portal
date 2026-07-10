@@ -3654,9 +3654,9 @@ function FormsPage({ caseStore }) {
   const inputSt = { background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 12px", fontSize: 13, color: "#e8f5ee", fontFamily: "inherit", outline: "none", width: "100%", boxSizing: "border-box" };
 
   const Header = () => (
-    <div style={{display:"flex",alignItems:"center",gap:16,paddingBottom:10,borderBottom:"2.5px solid #1a4a8a",marginBottom:16}}>
-      <img src={LOGO_SRC} style={{width:160,height:160,objectFit:"contain",marginLeft:30}} alt="logo" />
-      <div style={{flex:1,textAlign:"center"}}>
+    <div style={{position:"relative",paddingBottom:10,borderBottom:"2.5px solid #1a4a8a",marginBottom:16,minHeight:150}}>
+      <img src={LOGO_SRC} style={{position:"absolute",left:40,top:"50%",transform:"translateY(-50%)",width:160,height:160,objectFit:"contain"}} alt="logo" />
+      <div style={{textAlign:"center",paddingTop:45}}>
         <div style={{fontSize:20,fontWeight:800,color:"#1a4a8a",fontFamily:"serif"}}>E. B. Bernas Land Consultancy</div>
         <div style={{fontSize:13,color:"#333"}}>#051 Garrita, Bani, Pangasinan</div>
         <div style={{fontSize:13,color:"#333"}}>Contact Number: 0969-4931-815 / 0991-9374-062</div>
