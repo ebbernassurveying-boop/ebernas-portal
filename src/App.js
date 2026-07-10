@@ -3774,7 +3774,7 @@ function FormsPage({ caseStore }) {
       )}
 
       {showPreview && selClient && (
-        <div id="print-area" style={{background:"#fff",color:"#000",borderRadius:16,padding:40,fontFamily:"serif",fontSize:13,lineHeight:1.7}}>
+        <div id="print-area" style={{background:"#fff",color:"#000",borderRadius:16,padding:"90px 40px 40px",fontFamily:"serif",fontSize:13,lineHeight:1.7}}>
 
           {formType === "survey-notice" && (
             <>
@@ -3786,17 +3786,17 @@ function FormsPage({ caseStore }) {
               </div>
               <div style={{textAlign:"center",fontWeight:800,fontSize:15,marginBottom:20,textDecoration:"underline",letterSpacing:"0.05em"}}>NOTICE OF SURVEY</div>
               <p style={{marginBottom:16}}><strong>TO WHOM IT MAY CONCERN:</strong></p>
-              <p style={{textAlign:"justify",marginBottom:16}}>
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Please be informed that <strong>E.B. BERNAS LAND CONSULTANCY</strong> will conduct a <strong>{surveyType}</strong> on{" "}
+              <p style={{textAlign:"justify",marginBottom:16,textIndent:"3em"}}>
+                Please be informed that <strong>E.B. BERNAS LAND CONSULTANCY</strong> will conduct a <strong>{surveyType}</strong> on{" "}
                 <strong style={{borderBottom:"1px solid #000",paddingBottom:2}}>
                   {fields.surveyDate ? new Date(fields.surveyDate+"T00:00:00").toLocaleDateString("en-PH",{year:"numeric",month:"long",day:"numeric"}) : "_______________"}
                 </strong>{" "}at <strong>{fields.surveyTime}</strong>, covering <strong>Lot No. {lotNo}</strong>, <strong>OCT/TCT No. {fields.octTct||"_______________"}</strong>, TD No. <strong>{fields.tdNo||"_______________"}</strong>, situated at <strong>Brgy. {barangay}, {municipality}, {province}</strong>.
               </p>
-              <p style={{textAlign:"justify",marginBottom:16}}>
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;In connection with this activity, all concerned parties and adjoining owners are respectfully invited to witness the said survey in order to avoid any conflict or dispute regarding the property boundaries.
+              <p style={{textAlign:"justify",marginBottom:16,textIndent:"3em"}}>
+                In connection with this activity, all concerned parties and adjoining owners are respectfully invited to witness the said survey in order to avoid any conflict or dispute regarding the property boundaries.
               </p>
-              <p style={{textAlign:"justify",marginBottom:28}}>
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This Notice of Survey is issued upon the request of{" "}
+              <p style={{textAlign:"justify",marginBottom:28,textIndent:"3em"}}>
+                This Notice of Survey is issued upon the request of{" "}
                 <strong style={{borderBottom:"1px solid #000",padding:"0 50px 2px 4px"}}>{fields.requestedBy||selClient}</strong>. Your presence and cooperation on this activity would be highly appreciated.
               </p>
               <p style={{marginBottom:40}}><strong>Very truly yours,</strong></p>
