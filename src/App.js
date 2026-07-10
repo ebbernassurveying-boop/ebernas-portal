@@ -3784,8 +3784,8 @@ function FormsPage({ caseStore }) {
                   {fields.letterDate ? new Date(fields.letterDate+"T00:00:00").toLocaleDateString("en-PH",{year:"numeric",month:"long",day:"numeric"}) : "_______________"}
                 </span>
               </div>
-              <div style={{textAlign:"center",fontWeight:800,fontSize:15,marginBottom:20,textDecoration:"underline",letterSpacing:"0.05em"}}>NOTICE OF SURVEY</div>
-              <p style={{marginBottom:16}}><strong>TO WHOM IT MAY CONCERN:</strong></p>
+              <div style={{textAlign:"center",fontWeight:800,fontSize:15,marginTop:24,marginBottom:8,textDecoration:"underline",letterSpacing:"0.05em"}}>NOTICE OF SURVEY</div>
+              <p style={{marginTop:32,marginBottom:20}}><strong>TO WHOM IT MAY CONCERN:</strong></p>
               <p style={{textAlign:"justify",marginBottom:16,textIndent:"3em"}}>
                 Please be informed that <strong>E.B. BERNAS LAND CONSULTANCY</strong> will conduct a <strong>{surveyType}</strong> on{" "}
                 <strong style={{borderBottom:"1px solid #000",paddingBottom:2}}>
