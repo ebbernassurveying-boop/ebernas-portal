@@ -3800,7 +3800,7 @@ function FormsPage({ caseStore }) {
               </p>
               <p style={{marginBottom:40}}><strong>Very truly yours;</strong></p>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:40,marginBottom:40}}>
-                <div><div style={{borderTop:"1px solid #000",paddingTop:6,marginTop:50}}>{signature&&<img src={signature} alt="signature" style={{position:"absolute",marginTop:-58,marginLeft:10,height:55,objectFit:"contain",mixBlendMode:"multiply"}}/>}<strong>EUGENE BENEDICT C. BERNAS</strong><br/>GEODETIC ENGINEER<br/>LIC. NO. 8835</div></div>
+                <div><div style={{borderTop:"1px solid #000",paddingTop:6,marginTop:50}}>{signature&&<img src={signature} alt="signature" style={{position:"absolute",marginTop:-120,marginLeft:10,height:150,objectFit:"contain",mixBlendMode:"multiply"}}/>}<strong>EUGENE BENEDICT C. BERNAS</strong><br/>GEODETIC ENGINEER<br/>LIC. NO. 8835</div></div>
                 <div><div style={{borderTop:"1px solid #000",paddingTop:6,marginTop:50}}><strong>{fields.barangayCaptain||"_______________________"}</strong><br/>BARANGAY CAPTAIN</div></div>
               </div>
               <div>
@@ -3842,7 +3842,7 @@ function FormsPage({ caseStore }) {
               <p style={{marginBottom:32}}><strong>TOTAL AMOUNT DUE:</strong> {fmtP(mobilizationAmt)} ({numToWords(mobilizationAmt)})</p>
               <p style={{marginBottom:50}}>Very Truly Yours,</p>
               <div style={{display:"inline-block",borderTop:"1px solid #000",paddingTop:6,position:"relative"}}>
-                {signature&&<img src={signature} alt="signature" style={{position:"absolute",top:-52,left:10,height:55,objectFit:"contain",mixBlendMode:"multiply"}}/>}
+                {signature&&<img src={signature} alt="signature" style={{position:"absolute",top:-115,left:10,height:150,objectFit:"contain",mixBlendMode:"multiply"}}/>}
                 <strong>EUGENE BENEDICT C. BERNAS</strong><br/>GEODETIC ENGINEER
               </div>
               <Footer />
