@@ -40,6 +40,31 @@ const getWeekDays = (weekStart) => {
 
 const DAY_LABELS = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
 
+// Convert an attendance record to a day value: full = 1, half = 0.5, absent = 0
+const dayValue = (att) => (att?.present ? (att.half ? 0.5 : 1) : 0);
+
+// Returns event handlers: short press = onClick, long press (>=500ms) = onHold.
+// Works for both mouse and touch. Prevents the click from also firing after a hold.
+const longPress = (onHold, onClick, ms = 500) => {
+  let timer = null;
+  let held = false;
+  const start = (e) => {
+    held = false;
+    timer = setTimeout(() => { held = true; onHold(); }, ms);
+  };
+  const finish = () => { if (timer) { clearTimeout(timer); timer = null; } };
+  const cancel = () => { finish(); held = false; };
+  return {
+    onMouseDown: start,
+    onMouseUp: finish,
+    onMouseLeave: cancel,
+    onTouchStart: start,
+    onTouchEnd: (e) => { finish(); if (held) { e.preventDefault(); } },
+    onClick: (e) => { if (held) { e.preventDefault(); held = false; return; } onClick(); },
+    onContextMenu: (e) => e.preventDefault(),
+  };
+};
+
 // ── FIREBASE HELPERS ──────────────────────────────────────────────────────────
 async function saveFinanceDoc(colName, id, data) {
   await setDoc(doc(db, colName, id), data, { merge: true });
@@ -156,7 +181,7 @@ function OverviewTab({ income, attendance, payroll, expenses, employees }) {
       const daysWorked = filterByPeriod(
         attendance.filter(a => a.employeeId === empId && a.present),
         "date"
-      ).length;
+      ).reduce((n, a) => n + dayValue(a), 0);
       return sum + (rate * daysWorked);
     }, 0);
   })();
@@ -345,14 +370,23 @@ function AttendanceTab({ attendance, employees, isAdmin, currentUser }) {
 
   const getAttendance = (empId, date) => attendance.find(a => a.employeeId === empId && a.date === date);
 
+  // Click = toggle Present <-> Absent
   const toggleAttendance = async (empId, date, current) => {
     if (!isAdmin) return;
     const id = `ATT-${empId.replace(/[^a-zA-Z0-9]/g, "_")}-${date}`;
     if (current?.present) {
-      await saveFinanceDoc("fin_attendance", id, { id, employeeId: empId, date, present: false });
+      await saveFinanceDoc("fin_attendance", id, { id, employeeId: empId, date, present: false, half: false });
     } else {
-      await saveFinanceDoc("fin_attendance", id, { id, employeeId: empId, date, present: true });
+      await saveFinanceDoc("fin_attendance", id, { id, employeeId: empId, date, present: true, half: false });
     }
+  };
+
+  // Long-press = set Half Day (toggle back to full if already half)
+  const setHalfDay = async (empId, date, current) => {
+    if (!isAdmin) return;
+    const id = `ATT-${empId.replace(/[^a-zA-Z0-9]/g, "_")}-${date}`;
+    const makeHalf = !(current?.present && current?.half);
+    await saveFinanceDoc("fin_attendance", id, { id, employeeId: empId, date, present: true, half: makeHalf });
   };
 
   const prevWeek = () => {
@@ -367,7 +401,7 @@ function AttendanceTab({ attendance, employees, isAdmin, currentUser }) {
   };
 
   const weekEnd = weekDays[6];
-  const totalDaysPerEmp = (empId) => weekDays.filter(d => getAttendance(empId, d)?.present).length;
+  const totalDaysPerEmp = (empId) => weekDays.reduce((sum, d) => sum + dayValue(getAttendance(empId, d)), 0);
 
   return (
     <Card>
@@ -416,22 +450,28 @@ function AttendanceTab({ attendance, employees, isAdmin, currentUser }) {
                     {weekDays.map((d) => {
                       const att = getAttendance(empId, d);
                       const isPresent = att?.present;
+                      const isHalf = att?.present && att?.half;
+                      const bg = isHalf ? "rgba(251,191,36,0.2)" : isPresent ? "rgba(52,211,153,0.2)" : "rgba(255,255,255,0.05)";
+                      const fg = isHalf ? "#fbbf24" : isPresent ? "#34d399" : "rgba(220,245,230,0.2)";
+                      const mark = isHalf ? "◑" : isPresent ? "✓" : "·";
                       return (
                         <td key={d} style={{ textAlign: "center", padding: "6px 4px" }}>
-                          <button onClick={() => toggleAttendance(empId, d, att)}
+                          <button
+                            {...longPress(() => setHalfDay(empId, d, att), () => toggleAttendance(empId, d, att))}
                             disabled={!isAdmin}
+                            title={isAdmin ? "Click = Present/Absent · Hold = Half Day" : undefined}
                             style={{
                               width: 32, height: 32, borderRadius: 8, border: "none", cursor: isAdmin ? "pointer" : "default", fontFamily: "inherit", fontSize: 14, transition: "all 0.15s",
-                              background: isPresent ? "rgba(52,211,153,0.2)" : "rgba(255,255,255,0.05)",
-                              color: isPresent ? "#34d399" : "rgba(220,245,230,0.2)",
+                              background: bg, color: fg,
+                              WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none",
                             }}>
-                            {isPresent ? "✓" : "·"}
+                            {mark}
                           </button>
                         </td>
                       );
                     })}
                     <td style={{ textAlign: "center", padding: "6px 0 6px 8px" }}>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: days > 0 ? "#34d399" : "rgba(220,245,230,0.3)" }}>{days}</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: days > 0 ? "#34d399" : "rgba(220,245,230,0.3)" }}>{Number(days.toFixed(1))}</span>
                     </td>
                   </tr>
                 );
@@ -440,7 +480,8 @@ function AttendanceTab({ attendance, employees, isAdmin, currentUser }) {
           </table>
         </div>
       )}
-      <p style={{ fontSize: 11, color: "rgba(220,245,230,0.3)", marginTop: 12 }}>✓ = Present · Linggo: Sabado → Biyernes (Biyernes = pasahod)</p>
+      <p style={{ fontSize: 11, color: "rgba(220,245,230,0.3)", marginTop: 12 }}>✓ = Present · ◑ = Half Day (0.5) · Linggo: Sabado → Biyernes (Biyernes = pasahod)</p>
+      {isAdmin && <p style={{ fontSize: 11, color: "rgba(220,245,230,0.3)", marginTop: 4 }}>💡 I-click = Present/Absent · I-hold (pindutin nang matagal) = Half Day</p>}
     </Card>
   );
 }
@@ -463,7 +504,7 @@ function PayrollTab({ payroll, attendance, employees, isAdmin }) {
     setRateInput("");
   };
 
-  const getDaysWorked = (empId) => weekDays.filter(d => attendance.find(a => a.employeeId === empId && a.date === d && a.present)).length;
+  const getDaysWorked = (empId) => weekDays.reduce((sum, d) => sum + dayValue(attendance.find(a => a.employeeId === empId && a.date === d)), 0);
 
   const prevWeek = () => {
     const d = new Date(weekStart); d.setDate(d.getDate() - 7);
@@ -535,7 +576,7 @@ function PayrollTab({ payroll, attendance, employees, isAdmin }) {
                   {/* Days */}
                   <div style={{ textAlign: "center" }}>
                     <p style={{ fontSize: 9, color: "rgba(220,245,230,0.4)", marginBottom: 3 }}>DAYS</p>
-                    <p style={{ fontSize: 20, fontWeight: 800, color: "#60a5fa" }}>{days}</p>
+                    <p style={{ fontSize: 20, fontWeight: 800, color: "#60a5fa" }}>{Number(days.toFixed(1))}</p>
                   </div>
                   {/* Total */}
                   <div style={{ textAlign: "center" }}>
