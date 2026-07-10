@@ -3589,7 +3589,7 @@ function FormsPage({ caseStore }) {
   const [formType, setFormType] = React.useState("survey-notice");
   const [fields, setFields] = React.useState({
     surveyDate: "", surveyTime: "9:00 AM", barangayCaptain: "", witnesses: ["", ""],
-    tdNo: "", requestedBy: "",
+    tdNo: "", octTct: "", requestedBy: "",
     invoiceNo: "", dateIssued: new Date().toLocaleDateString("en-PH", { year:"numeric", month:"long", day:"numeric" }),
     clientAddress: "", clientEmail: "", clientContact: "",
     projectDescription: "", contractPrice: "", mobilizationPct: "20",
@@ -3716,7 +3716,7 @@ function FormsPage({ caseStore }) {
 
         {formType === "survey-notice" && selClient && (
           <div className="no-print" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-            {[["surveyDate","📅 Date of Survey","date"],["surveyTime","⏰ Time","text"],["tdNo","TD No.","text"],["requestedBy","Requested by","text"],["barangayCaptain","Barangay Captain Name","text"]].map(([key,label,type]) => (
+            {[["surveyDate","📅 Date of Survey","date"],["surveyTime","⏰ Time","text"],["tdNo","TD No.","text"],["octTct","OCT/TCT No.","text"],["requestedBy","Requested by","text"],["barangayCaptain","Barangay Captain Name","text"]].map(([key,label,type]) => (
               <div key={key} style={key==="barangayCaptain"?{gridColumn:"1/-1"}:{}}>
                 <p style={{fontSize:10,color:"rgba(220,245,230,0.4)",marginBottom:4}}>{label}</p>
                 <input type={type} value={key==="requestedBy"?(fields.requestedBy||selClient):fields[key]}
@@ -3790,7 +3790,7 @@ function FormsPage({ caseStore }) {
                 <strong style={{borderBottom:"1px solid #000",paddingBottom:2}}>
                   {fields.surveyDate ? new Date(fields.surveyDate+"T00:00:00").toLocaleDateString("en-PH",{year:"numeric",month:"long",day:"numeric"}) : "_______________"}
                 </strong>{" "}
-                with <strong>Lot No. {lotNo}</strong>, TD no. <strong>{fields.tdNo||"_______________"}</strong> at <strong>Brgy. {barangay}, {municipality}, {province}</strong>.
+                with <strong>Lot No. {lotNo}</strong>, <strong>OCT/TCT No. {fields.octTct||"_______________"}</strong>, TD no. <strong>{fields.tdNo||"_______________"}</strong> at <strong>Brgy. {barangay}, {municipality}, {province}</strong>.
                 {" "}You are invited to Witness this said Survey in order to avoid conflicts on this Activity. At <strong>{fields.surveyTime}</strong>.
               </p>
               <p style={{marginBottom:28}}>
