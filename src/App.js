@@ -3655,7 +3655,7 @@ function FormsPage({ caseStore }) {
 
   const Header = () => (
     <div style={{display:"flex",alignItems:"center",gap:16,paddingBottom:10,borderBottom:"2.5px solid #1a4a8a",marginBottom:16}}>
-      <img src={LOGO_SRC} style={{width:160,height:160,objectFit:"contain"}} alt="logo" />
+      <img src={LOGO_SRC} style={{width:160,height:160,objectFit:"contain",marginLeft:30}} alt="logo" />
       <div style={{flex:1,textAlign:"center"}}>
         <div style={{fontSize:20,fontWeight:800,color:"#1a4a8a",fontFamily:"serif"}}>E. B. Bernas Land Consultancy</div>
         <div style={{fontSize:13,color:"#333"}}>#051 Garrita, Bani, Pangasinan</div>
