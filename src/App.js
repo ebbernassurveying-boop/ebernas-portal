@@ -4071,7 +4071,7 @@ export default function EBBernasPortal() {
   // Agent guard: kung nasa hindi-pinapayagang menu, ibalik sa Client Dashboard
   useEffect(() => {
     const agentRole = currentUser?.role === "agent";
-    if (agentRole && !["schedule", "dashboard", "forms", "profile"].includes(activeMenu)) {
+    if (agentRole && !["schedule", "dashboard", "profile"].includes(activeMenu)) {
       setActiveMenu("dashboard");
     }
   }, [currentUser, activeMenu]);
@@ -4180,7 +4180,6 @@ export default function EBBernasPortal() {
     // Restricted menu para sa agent
     { id: "schedule", label: "📅 Schedule" },
     { id: "dashboard", label: "Client Dashboard" },
-    { id: "forms", label: "📋 Forms Generator" },
     { id: "profile", label: "👤 My Profile" },
   ] : [
     { id: "overview", label: "🏢 Overview" },
@@ -4432,7 +4431,7 @@ export default function EBBernasPortal() {
             {activeMenu === "checklist" && !isAgent && <ChecklistPage client={selectedClient} caseStore={caseStore} setCaseStore={setCaseStore} isAdmin={isAdmin} />}
             {activeMenu === "messaging" && !isAgent && <MessagingPage globalEmployees={allEmployeesMerged} />}
             {activeMenu === "newcase" && !isAgent && <NewCasePage caseStore={caseStore} setCaseStore={setCaseStore} setActiveMenu={setActiveMenu} setSelectedClient={setSelectedClient} isAdmin={isAdmin} currentUser={currentUser} />}
-            {activeMenu === "forms" && <FormsPage caseStore={scopedCaseStore} />}
+            {activeMenu === "forms" && !isAgent && <FormsPage caseStore={scopedCaseStore} />}
             {activeMenu === "birtax" && !isAgent && <BIRCalculatorPage isAdmin={isAdmin} />}
             {activeMenu === "agents" && !isAgent && <AgentsPage caseStore={caseStore} setActiveMenu={setActiveMenu} setSelectedClient={setSelectedClient} caseClientName={caseClientName} parseCaseKey={parseCaseKey} resolveTrackerKey={resolveTrackerKey} isAdmin={isAdmin} />}
             {activeMenu === "admin" && isAdmin && <EmployeeManager currentUser={currentUser} />}
