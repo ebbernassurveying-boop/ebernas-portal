@@ -43,28 +43,6 @@ const DAY_LABELS = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
 // Convert an attendance record to a day value: full = 1, half = 0.5, absent = 0
 const dayValue = (att) => (att?.present ? (att.half ? 0.5 : 1) : 0);
 
-// Returns event handlers: short press = onClick, long press (>=500ms) = onHold.
-// Works for both mouse and touch. Prevents the click from also firing after a hold.
-const longPress = (onHold, onClick, ms = 500) => {
-  let timer = null;
-  let held = false;
-  const start = (e) => {
-    held = false;
-    timer = setTimeout(() => { held = true; onHold(); }, ms);
-  };
-  const finish = () => { if (timer) { clearTimeout(timer); timer = null; } };
-  const cancel = () => { finish(); held = false; };
-  return {
-    onMouseDown: start,
-    onMouseUp: finish,
-    onMouseLeave: cancel,
-    onTouchStart: start,
-    onTouchEnd: (e) => { finish(); if (held) { e.preventDefault(); } },
-    onClick: (e) => { if (held) { e.preventDefault(); held = false; return; } onClick(); },
-    onContextMenu: (e) => e.preventDefault(),
-  };
-};
-
 // ── FIREBASE HELPERS ──────────────────────────────────────────────────────────
 async function saveFinanceDoc(colName, id, data) {
   await setDoc(doc(db, colName, id), data, { merge: true });
@@ -456,17 +434,28 @@ function AttendanceTab({ attendance, employees, isAdmin, currentUser }) {
                       const mark = isHalf ? "◑" : isPresent ? "✓" : "·";
                       return (
                         <td key={d} style={{ textAlign: "center", padding: "6px 4px" }}>
-                          <button
-                            {...longPress(() => setHalfDay(empId, d, att), () => toggleAttendance(empId, d, att))}
-                            disabled={!isAdmin}
-                            title={isAdmin ? "Click = Present/Absent · Hold = Half Day" : undefined}
-                            style={{
-                              width: 32, height: 32, borderRadius: 8, border: "none", cursor: isAdmin ? "pointer" : "default", fontFamily: "inherit", fontSize: 14, transition: "all 0.15s",
-                              background: bg, color: fg,
-                              WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none",
-                            }}>
-                            {mark}
-                          </button>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                            <button onClick={() => toggleAttendance(empId, d, att)}
+                              disabled={!isAdmin}
+                              title={isAdmin ? "Present / Absent" : undefined}
+                              style={{
+                                width: 32, height: 32, borderRadius: 8, border: "none", cursor: isAdmin ? "pointer" : "default", fontFamily: "inherit", fontSize: 14, transition: "all 0.15s",
+                                background: bg, color: fg,
+                              }}>
+                              {mark}
+                            </button>
+                            {isAdmin && (
+                              <button onClick={() => setHalfDay(empId, d, att)}
+                                title="Half Day (0.5)"
+                                style={{
+                                  width: 18, height: 32, borderRadius: 6, border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 10, fontWeight: 800, transition: "all 0.15s",
+                                  background: isHalf ? "rgba(251,191,36,0.25)" : "rgba(255,255,255,0.05)",
+                                  color: isHalf ? "#fbbf24" : "rgba(220,245,230,0.35)",
+                                }}>
+                                H
+                              </button>
+                            )}
+                          </div>
                         </td>
                       );
                     })}
@@ -481,7 +470,7 @@ function AttendanceTab({ attendance, employees, isAdmin, currentUser }) {
         </div>
       )}
       <p style={{ fontSize: 11, color: "rgba(220,245,230,0.3)", marginTop: 12 }}>✓ = Present · ◑ = Half Day (0.5) · Linggo: Sabado → Biyernes (Biyernes = pasahod)</p>
-      {isAdmin && <p style={{ fontSize: 11, color: "rgba(220,245,230,0.3)", marginTop: 4 }}>💡 I-click = Present/Absent · I-hold (pindutin nang matagal) = Half Day</p>}
+      {isAdmin && <p style={{ fontSize: 11, color: "rgba(220,245,230,0.3)", marginTop: 4 }}>💡 I-click ang box = Present/Absent · Pindutin ang maliit na "H" = Half Day</p>}
     </Card>
   );
 }
