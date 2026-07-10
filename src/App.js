@@ -3785,20 +3785,21 @@ function FormsPage({ caseStore }) {
                 </span>
               </div>
               <div style={{textAlign:"center",fontWeight:800,fontSize:15,marginBottom:20,textDecoration:"underline",letterSpacing:"0.05em"}}>NOTICE OF SURVEY</div>
+              <p style={{marginBottom:16}}><strong>TO WHOM IT MAY CONCERN:</strong></p>
               <p style={{textAlign:"justify",marginBottom:16}}>
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This is to inform all concern persons, <strong>E.B. BERNAS LAND CONSULTANCY</strong> will conduct a <strong>{surveyType}</strong> on{" "}
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Please be informed that <strong>E.B. BERNAS LAND CONSULTANCY</strong> will conduct a <strong>{surveyType}</strong> on{" "}
                 <strong style={{borderBottom:"1px solid #000",paddingBottom:2}}>
                   {fields.surveyDate ? new Date(fields.surveyDate+"T00:00:00").toLocaleDateString("en-PH",{year:"numeric",month:"long",day:"numeric"}) : "_______________"}
-                </strong>{" "}
-                with <strong>Lot No. {lotNo}</strong>, <strong>OCT/TCT No. {fields.octTct||"_______________"}</strong>, TD no. <strong>{fields.tdNo||"_______________"}</strong> at <strong>Brgy. {barangay}, {municipality}, {province}</strong>.
-                {" "}You are invited to Witness this said Survey in order to avoid conflicts on this Activity. At <strong>{fields.surveyTime}</strong>.
+                </strong>{" "}at <strong>{fields.surveyTime}</strong>, covering <strong>Lot No. {lotNo}</strong>, <strong>OCT/TCT No. {fields.octTct||"_______________"}</strong>, TD No. <strong>{fields.tdNo||"_______________"}</strong>, situated at <strong>Brgy. {barangay}, {municipality}, {province}</strong>.
               </p>
-              <p style={{marginBottom:28}}>
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This survey notice is issued upon the request of{" "}
-                <strong style={{borderBottom:"1px solid #000",padding:"0 50px 2px 4px"}}>{fields.requestedBy||selClient}</strong>.
-                Your consent on this activity is highly appreciated.
+              <p style={{textAlign:"justify",marginBottom:16}}>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;In connection with this activity, all concerned parties and adjoining owners are respectfully invited to witness the said survey in order to avoid any conflict or dispute regarding the property boundaries.
               </p>
-              <p style={{marginBottom:40}}><strong>Very truly yours;</strong></p>
+              <p style={{textAlign:"justify",marginBottom:28}}>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This Notice of Survey is issued upon the request of{" "}
+                <strong style={{borderBottom:"1px solid #000",padding:"0 50px 2px 4px"}}>{fields.requestedBy||selClient}</strong>. Your presence and cooperation on this activity would be highly appreciated.
+              </p>
+              <p style={{marginBottom:40}}><strong>Very truly yours,</strong></p>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:40,marginBottom:40}}>
                 <div><div style={{borderTop:"1px solid #000",paddingTop:6,marginTop:50}}>{signature&&<img src={signature} alt="signature" style={{position:"absolute",marginTop:-95,marginLeft:10,height:150,objectFit:"contain",mixBlendMode:"multiply"}}/>}<strong>EUGENE BENEDICT C. BERNAS</strong><br/>GEODETIC ENGINEER<br/>LIC. NO. 8835</div></div>
                 <div><div style={{borderTop:"1px solid #000",paddingTop:6,marginTop:50}}><strong>{fields.barangayCaptain||"_______________________"}</strong><br/>BARANGAY CAPTAIN</div></div>
