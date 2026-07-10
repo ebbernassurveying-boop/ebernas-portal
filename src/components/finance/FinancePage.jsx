@@ -11,23 +11,23 @@ const fmtDate = (iso) => {
 };
 const fmtPeso = (n) => `₱${Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
 
-// Get Monday of current week
+// Get Saturday of current week (week runs Sat -> Fri, payday = Fri)
 const getWeekStart = (dateStr) => {
   const d = new Date(dateStr || todayStr());
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
+  const day = d.getDay();          // Sun=0, Mon=1 ... Sat=6
+  const diff = -((day + 1) % 7);   // Sat=0, Sun=-1, Mon=-2 ... Fri=-6
   d.setDate(d.getDate() + diff);
   return d.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 };
 
-// Get Friday of current week
+// Get Friday of current week (payday = 6 days after Saturday)
 const getWeekEnd = (dateStr) => {
   const d = new Date(getWeekStart(dateStr));
-  d.setDate(d.getDate() + 4);
+  d.setDate(d.getDate() + 6);
   return d.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 };
 
-// Generate week days Mon-Sun
+// Generate week days Sat-Fri
 const getWeekDays = (weekStart) => {
   const days = [];
   for (let i = 0; i < 7; i++) {
@@ -38,7 +38,7 @@ const getWeekDays = (weekStart) => {
   return days;
 };
 
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_LABELS = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
 
 // ── FIREBASE HELPERS ──────────────────────────────────────────────────────────
 async function saveFinanceDoc(colName, id, data) {
@@ -413,20 +413,19 @@ function AttendanceTab({ attendance, employees, isAdmin, currentUser }) {
                       <p style={{ fontSize: 13, fontWeight: 700 }}>{emp.name || emp.displayName}</p>
                       <p style={{ fontSize: 10, color: "rgba(220,245,230,0.4)" }}>{emp.position || "Employee"}</p>
                     </td>
-                    {weekDays.map((d, i) => {
+                    {weekDays.map((d) => {
                       const att = getAttendance(empId, d);
                       const isPresent = att?.present;
-                      const isWeekend = i >= 5;
                       return (
                         <td key={d} style={{ textAlign: "center", padding: "6px 4px" }}>
                           <button onClick={() => toggleAttendance(empId, d, att)}
                             disabled={!isAdmin}
                             style={{
                               width: 32, height: 32, borderRadius: 8, border: "none", cursor: isAdmin ? "pointer" : "default", fontFamily: "inherit", fontSize: 14, transition: "all 0.15s",
-                              background: isPresent ? (isWeekend ? "rgba(251,191,36,0.2)" : "rgba(52,211,153,0.2)") : "rgba(255,255,255,0.05)",
-                              color: isPresent ? (isWeekend ? "#fbbf24" : "#34d399") : "rgba(220,245,230,0.2)",
+                              background: isPresent ? "rgba(52,211,153,0.2)" : "rgba(255,255,255,0.05)",
+                              color: isPresent ? "#34d399" : "rgba(220,245,230,0.2)",
                             }}>
-                            {isPresent ? (isWeekend ? "🟡" : "✓") : "·"}
+                            {isPresent ? "✓" : "·"}
                           </button>
                         </td>
                       );
@@ -441,7 +440,7 @@ function AttendanceTab({ attendance, employees, isAdmin, currentUser }) {
           </table>
         </div>
       )}
-      <p style={{ fontSize: 11, color: "rgba(220,245,230,0.3)", marginTop: 12 }}>✓ = Present (weekday) · 🟡 = Present (weekend, counted next Friday)</p>
+      <p style={{ fontSize: 11, color: "rgba(220,245,230,0.3)", marginTop: 12 }}>✓ = Present · Linggo: Sabado → Biyernes (Biyernes = pasahod)</p>
     </Card>
   );
 }
