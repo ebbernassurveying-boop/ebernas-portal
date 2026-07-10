@@ -3588,7 +3588,7 @@ function FormsPage({ caseStore }) {
   const [selClient, setSelClient] = React.useState(clients[0] || "");
   const [formType, setFormType] = React.useState("survey-notice");
   const [fields, setFields] = React.useState({
-    surveyDate: "", surveyTime: "9:00 AM", barangayCaptain: "", witnesses: ["", ""],
+    surveyDate: "", letterDate: "", surveyTime: "9:00 AM", barangayCaptain: "", witnesses: ["", ""],
     tdNo: "", octTct: "", requestedBy: "",
     invoiceNo: "", dateIssued: new Date().toLocaleDateString("en-PH", { year:"numeric", month:"long", day:"numeric" }),
     clientAddress: "", clientEmail: "", clientContact: "",
@@ -3716,7 +3716,7 @@ function FormsPage({ caseStore }) {
 
         {formType === "survey-notice" && selClient && (
           <div className="no-print" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-            {[["surveyDate","📅 Date of Survey","date"],["surveyTime","⏰ Time","text"],["tdNo","TD No.","text"],["octTct","OCT/TCT No.","text"],["requestedBy","Requested by","text"],["barangayCaptain","Barangay Captain Name","text"]].map(([key,label,type]) => (
+            {[["surveyDate","📅 Date of Survey","date"],["letterDate","✉️ Date of Letter","date"],["surveyTime","⏰ Time","text"],["tdNo","TD No.","text"],["octTct","OCT/TCT No.","text"],["requestedBy","Requested by","text"],["barangayCaptain","Barangay Captain Name","text"]].map(([key,label,type]) => (
               <div key={key} style={key==="barangayCaptain"?{gridColumn:"1/-1"}:{}}>
                 <p style={{fontSize:10,color:"rgba(220,245,230,0.4)",marginBottom:4}}>{label}</p>
                 <input type={type} value={key==="requestedBy"?(fields.requestedBy||selClient):fields[key]}
@@ -3781,7 +3781,7 @@ function FormsPage({ caseStore }) {
               <Header />
               <div style={{textAlign:"right",marginBottom:12}}>
                 Date: <span style={{borderBottom:"1px solid #000",paddingBottom:2,paddingRight:40}}>
-                  {fields.surveyDate ? new Date(fields.surveyDate+"T00:00:00").toLocaleDateString("en-PH",{year:"numeric",month:"long",day:"numeric"}) : "_______________"}
+                  {fields.letterDate ? new Date(fields.letterDate+"T00:00:00").toLocaleDateString("en-PH",{year:"numeric",month:"long",day:"numeric"}) : "_______________"}
                 </span>
               </div>
               <div style={{textAlign:"center",fontWeight:800,fontSize:15,marginBottom:20,textDecoration:"underline",letterSpacing:"0.05em"}}>NOTICE OF SURVEY</div>
