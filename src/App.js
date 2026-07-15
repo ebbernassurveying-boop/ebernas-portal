@@ -3662,8 +3662,8 @@ function FormsPage({ caseStore }) {
   const inputSt = { background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 12px", fontSize: 13, color: "#e8f5ee", fontFamily: "inherit", outline: "none", width: "100%", boxSizing: "border-box" };
 
   const Header = () => (
-    <div style={{position:"relative",paddingBottom:12,borderBottom:"3px solid #1a4a8a",marginBottom:16,minHeight:195}}>
-      <img src={LOGO_SRC} style={{position:"absolute",left:20,top:"50%",transform:"translateY(-50%)",width:210,height:210,objectFit:"contain"}} alt="logo" />
+    <div style={{position:"relative",paddingBottom:12,borderBottom:"3px solid #1a4a8a",marginBottom:16,minHeight:185}}>
+      <img src={LOGO_SRC} style={{position:"absolute",left:0,top:"50%",transform:"translateY(-50%)",width:200,height:200,objectFit:"contain"}} alt="logo" />
       <div style={{textAlign:"center",paddingTop:48}}>
         <div style={{fontSize:28,fontWeight:800,color:"#1a4a8a",fontFamily:"serif",letterSpacing:"0.02em"}}>E. B. Bernas Land Consultancy</div>
         <div style={{fontSize:14,color:"#333",marginTop:2}}>#051 Garrita, Bani, Pangasinan</div>
