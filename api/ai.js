@@ -87,9 +87,18 @@ export default async function handler(req, res) {
 
     if (!r.ok) {
       const detail = await r.text().catch(() => "");
-      console.error("Gemini error", r.status, detail.slice(0, 500));
-      // Huwag ipasa ang raw error sa browser — baka may sensitibong laman.
-      return res.status(502).json({ error: "Hindi maabot ang AI service. Subukan ulit." });
+      console.error("Gemini error", r.status, detail.slice(0, 800));
+
+      // Ipakita ang status code para ma-diagnose — pero HINDI ang raw detail
+      // (baka may sensitibong laman).
+      const hint =
+        r.status === 400 ? "mali ang request o invalid ang key" :
+        r.status === 401 || r.status === 403 ? "hindi tanggap ang API key — baka mali, expired, o na-delete" :
+        r.status === 404 ? `walang model na "${model}" para sa key na ito` :
+        r.status === 429 ? "naubos ang quota o masyadong mabilis ang requests" :
+        "may problema sa Gemini";
+
+      return res.status(502).json({ error: `Gemini ${r.status}: ${hint}.` });
     }
 
     const data = await r.json();
