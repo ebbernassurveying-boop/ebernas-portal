@@ -6,6 +6,7 @@ import BIRCalculatorPage from "./components/bir/BIRCalculatorPage";
 import AgentsPage from "./components/agents/AgentsPage";
 import FinancePage from "./components/finance/FinancePage";
 import QRAttendancePage from "./components/qr/QRAttendancePage";
+import ImportPage from "./components/import/ImportPage";
 
 // ── SMS UTILITY ──────────────────────────────────────────────────────────────
 async function sendSMS(number, message) {
@@ -4293,6 +4294,7 @@ export default function EBBernasPortal() {
     ...(isAdmin ? [
       { id: "finance", label: "💰 Finance & Payroll" },
       { id: "qrscan", label: "📷 QR Attendance" },
+      { id: "import", label: "📥 Import Excel" },
       { id: "admin", label: "👑 Admin Panel" },
     ] : []),
   ];
@@ -4588,6 +4590,7 @@ export default function EBBernasPortal() {
             {activeMenu === "admin" && isAdmin && <EmployeeManager currentUser={currentUser} />}
             {activeMenu === "finance" && isAdmin && <FinancePage isAdmin={isAdmin} currentUser={currentUser} globalEmployees={allEmployeesMerged} schedules={schedules} />}
             {activeMenu === "qrscan" && isAdmin && <QRAttendancePage globalEmployees={allEmployeesMerged} isAdmin={isAdmin} />}
+            {activeMenu === "import" && isAdmin && <ImportPage caseStore={caseStore} isAdmin={isAdmin} setActiveMenu={setMenu} />}
             {activeMenu === "profile" && <MyProfilePage currentUser={currentUser} onUpdate={handleUpdateProfile} />}
           </main>
         </div>
