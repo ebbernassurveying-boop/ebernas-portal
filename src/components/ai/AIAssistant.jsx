@@ -3,26 +3,26 @@ import AIWidget from "./AIWidget";
 import "./ai.css";
 
 /* ──────────────────────────────────────────────────────────────────────────
-   PHASE 2 SEAM — ito LANG ang palitan kapag ikinabit na ang tunay na AI.
-   Walang ibang file ang kailangang baguhin.
+   Ang tulay papuntang AI. Tumatawag sa /api/ai (Vercel serverless function)
+   kung saan naroon ang Gemini API key — HINDI dito sa browser.
 
-   Ang `context` ay para sa hinaharap: doon ipapasa ang datos ng portal
-   (schedules, cases, employees, finance) na mababasa ng AI. Optional muna.
-
-   Halimbawa ng magiging laman balang-araw:
-     const res = await fetch("/api/ai", {
-       method: "POST",
-       headers: { "Content-Type": "application/json" },
-       body: JSON.stringify({ text, history, context }),
-     });
-     const data = await res.json();
-     return { text: data.reply };
+   Ang `context` ay para sa Phase 3: doon ipapasa ang datos ng portal
+   (schedules, cases, employees, finance) na mababasa ng AI.
    ────────────────────────────────────────────────────────────────────────── */
-async function sendToAI(text, history, context) {  // eslint-disable-line no-unused-vars
-  await new Promise((r) => setTimeout(r, 650)); // maikling pause para makita ang typing indicator
-  return {
-    text: "AI integration is not yet connected.\nThis is only a UI foundation.",
-  };
+async function sendToAI(text, history, context) {
+  const res = await fetch("/api/ai", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, history, context }),
+  });
+
+  let data = {};
+  try { data = await res.json(); } catch { /* walang JSON body */ }
+
+  if (!res.ok) {
+    throw new Error(data.error || `Error ${res.status}`);
+  }
+  return { text: data.reply || "Walang naibalik na sagot." };
 }
 
 const now = () =>
@@ -31,15 +31,13 @@ const now = () =>
 const WELCOME = `Hello Engr. Bernas!
 I'm your AI Assistant.
 
-Soon I'll be able to help you with:
-• Schedules
-• Survey Cases
-• Employees
-• Finance
-• Reports
-• Analytics
+Makakausap mo na ako ngayon — magtanong ka lang.
 
-How can I help you today?`;
+Isang paalala: hindi ko pa nababasa ang datos ng portal (schedules, cases,
+employees, finance). Susunod na phase iyon. Sa ngayon, hindi ko masasagot
+ang mga tanong tungkol sa aktwal na laman ng portal.
+
+Ano'ng maitutulong ko?`;
 
 let seq = 0;
 const nextId = () => `m${++seq}`;
@@ -70,7 +68,7 @@ export default function AIAssistant({ context }) {
       setMessages((prev) => [...prev, {
         id: nextId(),
         role: "ai",
-        text: "Hindi naabot ang assistant. Subukan ulit.",
+        text: `⚠️ ${e.message || "Hindi naabot ang assistant."}`,
         ts: now(),
       }]);
     } finally {
