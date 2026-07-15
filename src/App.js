@@ -108,6 +108,11 @@ function AuthPage({ onLogin }) {
     } else {
       localStorage.removeItem("ebernas_remember");
     }
+    // Login alert via Telegram
+    const roleLabel = user.role === "admin" ? "👑 Admin" : user.role === "agent" ? "🔹 Agent" : "👤 Employee";
+    const loginTime = new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" });
+    sendTelegram(`🔐 <b>Login Alert</b>\n${roleLabel}: ${user.name || user.email}\n🕐 ${loginTime}`);
+
     onLogin({ email: user.email, role: user.role, displayName: user.name, mobile: user.mobile || "" });
   };
 
