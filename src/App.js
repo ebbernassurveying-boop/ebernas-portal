@@ -362,7 +362,7 @@ function InfoBlock({ label, value }) {
 }
 
 // ── OVERVIEW ──────────────────────────────────────────────────────────────────
-function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, setActiveMenu }) {
+function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, setActiveMenu, setSelectedClient }) {
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
@@ -508,7 +508,7 @@ function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, se
               process: { bg: "rgba(96,165,250,0.03)", bgHover: "rgba(96,165,250,0.07)", border: "rgba(96,165,250,0.12)", pillBg: "rgba(96,165,250,0.15)", color: "#60a5fa", label: "🔄 On Process" },
             }[status] || { bg: "rgba(96,165,250,0.03)", bgHover: "rgba(96,165,250,0.07)", border: "rgba(96,165,250,0.12)", pillBg: "rgba(96,165,250,0.15)", color: "#60a5fa", label: "🔄 On Process" };
             return (
-            <div key={name} onClick={() => setActiveMenu("dashboard")} className="case-table-row" style={{ display: "grid", gridTemplateColumns: isAdmin ? "2fr 1.5fr 1fr 1fr 36px" : "2fr 1.5fr 1fr 1fr", gap: 8, padding: "10px 12px", borderRadius: 12, background: st.bg, border: `1px solid ${st.border}`, cursor: "pointer", transition: "all 0.15s" }}
+            <div key={name} onClick={() => { setSelectedClient(name); setActiveMenu("dashboard"); }} className="case-table-row" style={{ display: "grid", gridTemplateColumns: isAdmin ? "2fr 1.5fr 1fr 1fr 36px" : "2fr 1.5fr 1fr 1fr", gap: 8, padding: "10px 12px", borderRadius: 12, background: st.bg, border: `1px solid ${st.border}`, cursor: "pointer", transition: "all 0.15s" }}
               onMouseOver={e => e.currentTarget.style.background = st.bgHover}
               onMouseOut={e => e.currentTarget.style.background = st.bg}>
               <div>
@@ -4080,6 +4080,14 @@ export default function EBBernasPortal() {
       setActiveMenu("dashboard");
     }
   }, [currentUser, activeMenu]);
+
+  // Sync ang Quick Select dropdown sa kung sinong client ang aktwal na napili
+  // (galing man sa Overview, Schedule, New Case, o Agents)
+  useEffect(() => {
+    if (!selectedClient) return;
+    const nm = caseClientName(selectedClient);
+    if (nm && nm !== quickName) setQuickName(nm);
+  }, [selectedClient]); // eslint-disable-line react-hooks/exhaustive-deps
   const [schedules, setSchedulesRaw] = useState([]);
   const [allEmployees, setAllEmployeesRaw] = useState([]);
   const [profilesMap, setProfilesMap] = useState({});
@@ -4385,16 +4393,25 @@ export default function EBBernasPortal() {
                 </div>
                 {/* Dropdown 1 — Pangalan lang (walang doble) */}
                 {(() => {
+                  const q = (search || "").trim().toLowerCase();
                   const keys = Object.keys(scopedCaseStore).filter(k => {
                     if (!k.trim()) return false;
                     const d = scopedCaseStore[k];
                     const isApproval = isApprovalCaseType(d);
-                    if (clientCategory === "approval") return isApproval;
-                    if (clientCategory === "field") return !isApproval;
+                    if (clientCategory === "approval" && !isApproval) return false;
+                    if (clientCategory === "field" && isApproval) return false;
+                    if (q) {
+                      const lot = String(d?.lotNo || parseCaseKey(k).lot || "").toLowerCase();
+                      if (!k.toLowerCase().includes(q) && !lot.includes(q)) return false;
+                    }
                     return true;
                   });
                   const names = [...new Set(keys.map(k => caseClientName(k)))].sort((a, b) => a.localeCompare(b));
-                  const lotsForName = keys.filter(k => caseClientName(k) === quickName)
+                  // Siguraduhing nasa listahan ang kasalukuyang napili, kahit na-filter ng search
+                  if (quickName && !names.includes(quickName)) names.unshift(quickName);
+                  // Ang lots ay galing sa LAHAT ng cases ng napiling client (hindi apektado ng search)
+                  const lotsForName = Object.keys(scopedCaseStore)
+                    .filter(k => k.trim() && caseClientName(k) === quickName)
                     .sort((a, b) => a.localeCompare(b));
                   return (
                     <>
@@ -4428,7 +4445,7 @@ export default function EBBernasPortal() {
           </aside>
 
           <main className="content">
-            {activeMenu === "overview" && !isAgent && <OverviewPage caseStore={caseStore} setCaseStore={setCaseStore} schedules={schedules} currentUser={currentUser} setActiveMenu={setActiveMenu} />}
+            {activeMenu === "overview" && !isAgent && <OverviewPage caseStore={caseStore} setCaseStore={setCaseStore} schedules={schedules} currentUser={currentUser} setActiveMenu={setActiveMenu} setSelectedClient={setSelectedClient} />}
             {activeMenu === "schedule" && <SchedulePage schedules={schedules} setSchedules={setSchedules} caseStore={scopedCaseStore} setCaseStore={setCaseStore} setActiveMenu={setMenu} setSelectedClient={setSelectedClient} globalEmployees={allEmployeesMerged} isAgent={isAgent} currentUser={currentUser} />}
             {activeMenu === "dashboard" && <DashboardPage client={selectedClient} caseStore={scopedCaseStore} setCaseStore={setCaseStore} isAdmin={isAdmin} currentUser={currentUser} />}
             {activeMenu === "cases" && !isAgent && <CasesPage setClient={setSelectedClient} setMenu={setMenu} search={search} setSearch={setSearch} />}
