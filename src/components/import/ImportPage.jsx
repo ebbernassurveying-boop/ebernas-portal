@@ -173,7 +173,9 @@ export default function ImportPage({ caseStore = {}, isAdmin, setActiveMenu }) {
     for (let i = 0; i < todo.length; i += CHUNK) {
       const batch = todo.slice(i, i + CHUNK);
       const res = await Promise.allSettled(batch.map(r => saveCase(r.key, buildCase(r))));
-      res.forEach(x => x.status === "fulfilled" ? ok++ : failed++);
+      for (let j = 0; j < res.length; j++) {
+        if (res[j].status === "fulfilled") ok++; else failed++;
+      }
       setProgress(Math.round(Math.min(i + CHUNK, todo.length) / todo.length * 100));
     }
     setBusy(false);
@@ -196,7 +198,7 @@ export default function ImportPage({ caseStore = {}, isAdmin, setActiveMenu }) {
 
       <div style={box}>
         <p style={{ fontSize: 13, color: "rgba(220,245,230,0.6)", lineHeight: 1.6, marginBottom: 14 }}>
-          Babasahin ang <b>"{SHEET_NAME}"</b> na sheet lang — ito ang master list, kasama na dito ang APPROVED,
+          Babasahin ang <b>&ldquo;{SHEET_NAME}&rdquo;</b> na sheet lang — ito ang master list, kasama na dito ang APPROVED,
           ON PROCESS, at REJECTED. Ang mga naka-encode na ay awtomatikong lalaktawan.
         </p>
         <input ref={inputRef} type="file" accept=".xlsx,.xls" onChange={handleFile} style={{ display: "none" }} />
