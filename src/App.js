@@ -3599,6 +3599,9 @@ function FormsPage({ caseStore }) {
     clientAddress: "", clientEmail: "", clientContact: "",
     projectDescription: "", contractPrice: "", mobilizationPct: "20",
     paymentTerms: "",
+    // GE Report (para sa Region) — flexible ang laman
+    geCity: "", geSubject: "", geBody: "",
+    geHandDate: "", geHandPlace: "", geSeries: String(new Date().getFullYear()),
   });
   const [showPreview, setShowPreview] = React.useState(false);
   const [signature, setSignature] = React.useState("");
@@ -3659,8 +3662,8 @@ function FormsPage({ caseStore }) {
   const inputSt = { background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 12px", fontSize: 13, color: "#e8f5ee", fontFamily: "inherit", outline: "none", width: "100%", boxSizing: "border-box" };
 
   const Header = () => (
-    <div style={{position:"relative",paddingBottom:12,borderBottom:"3px solid #1a4a8a",marginBottom:16,minHeight:165}}>
-      <img src={LOGO_SRC} style={{position:"absolute",left:30,top:"50%",transform:"translateY(-50%)",width:175,height:175,objectFit:"contain"}} alt="logo" />
+    <div style={{position:"relative",paddingBottom:12,borderBottom:"3px solid #1a4a8a",marginBottom:16,minHeight:195}}>
+      <img src={LOGO_SRC} style={{position:"absolute",left:20,top:"50%",transform:"translateY(-50%)",width:210,height:210,objectFit:"contain"}} alt="logo" />
       <div style={{textAlign:"center",paddingTop:48}}>
         <div style={{fontSize:28,fontWeight:800,color:"#1a4a8a",fontFamily:"serif",letterSpacing:"0.02em"}}>E. B. Bernas Land Consultancy</div>
         <div style={{fontSize:14,color:"#333",marginTop:2}}>#051 Garrita, Bani, Pangasinan</div>
@@ -3696,7 +3699,7 @@ function FormsPage({ caseStore }) {
         </div>
 
         <div className="no-print" style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-          {[["survey-notice","📋 Survey Notice"],["invoice","🧾 Invoice / Billing"]].map(([id,label]) => (
+          {[["survey-notice","📋 Survey Notice"],["invoice","🧾 Invoice / Billing"],["ge-report","📐 GE Report"]].map(([id,label]) => (
             <button key={id} onClick={() => { setFormType(id); setShowPreview(false); }}
               style={{padding:"9px 18px",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:700,
                 background:formType===id?"#fff":"rgba(255,255,255,0.07)",
@@ -3757,6 +3760,32 @@ function FormsPage({ caseStore }) {
           </div>
         )}
 
+        {formType === "ge-report" && selClient && (
+          <div className="no-print" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+            {[["geCity","🏛️ City / Municipality (sa taas)"],
+              ["geSubject","Subject (default: LOT " + lotNo + ")"],
+              ["geHandDate","Petsa — 'set my hand this ___'"],
+              ["geHandPlace","Lugar — 'at ___'"],
+              ["geSeries","Series of"]].map(([key,label]) => (
+              <div key={key}>
+                <p style={{fontSize:10,color:"rgba(220,245,230,0.4)",marginBottom:4}}>{label}</p>
+                <input value={fields[key]} onChange={e => setF(key, e.target.value)} style={inputSt} />
+              </div>
+            ))}
+            <div style={{gridColumn:"1/-1"}}>
+              <p style={{fontSize:10,color:"rgba(220,245,230,0.4)",marginBottom:4}}>
+                📝 Laman ng Report — i-type kung ano ang kailangan (tie point, cancellation ng Trans ID, correction, atbp.)
+              </p>
+              <textarea value={fields.geBody} onChange={e => setF("geBody", e.target.value)} rows={7}
+                placeholder={"Halimbawa:\nThis is to formally confirm that the tie point used in Lot 1057, CAD 386-D, BLLM1 (TRANS) with its corresponding coordinates (N = 1801855.855, E = 371447.86) as point of reference.\n\nBawat linya = bagong talata."}
+                style={{...inputSt,resize:"vertical",lineHeight:1.6}} />
+            </div>
+            <p style={{gridColumn:"1/-1",fontSize:11,color:"rgba(220,245,230,0.35)",margin:0}}>
+              ℹ️ Auto-fill: Lot {lotNo} · {municipality}, {province}. Ang Doc/Book/Page No. at petsa ng notaryo ay iiwang blangko.
+            </p>
+          </div>
+        )}
+
         {selClient && (
           <button onClick={() => setShowPreview(true)} className="btn-primary no-print" style={{width:"100%",padding:"12px 0"}}>
             ⚡ Generate Form
@@ -3766,7 +3795,7 @@ function FormsPage({ caseStore }) {
 
       {showPreview && selClient && (
         <div className="no-print" style={{position:"sticky",top:70,zIndex:50,display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(26,74,138,0.95)",borderRadius:14,padding:"12px 20px",backdropFilter:"blur(10px)"}}>
-          <p style={{color:"#fff",fontSize:13,fontWeight:700}}>✅ {formType === "survey-notice" ? "Survey Notice" : "Invoice/Billing"} — {selClient}</p>
+          <p style={{color:"#fff",fontSize:13,fontWeight:700}}>✅ {formType === "survey-notice" ? "Survey Notice" : formType === "ge-report" ? "GE Report" : "Invoice/Billing"} — {selClient}</p>
           <div style={{display:"flex",gap:8}}>
             <button onClick={() => setShowPreview(false)} style={{background:"rgba(255,255,255,0.15)",color:"#fff",border:"none",borderRadius:10,padding:"8px 16px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
               ✏️ Edit
@@ -3852,6 +3881,60 @@ function FormsPage({ caseStore }) {
                 <strong>EUGENE BENEDICT C. BERNAS</strong><br/>GEODETIC ENGINEER
               </div>
               <Footer />
+            </>
+          )}
+
+          {formType === "ge-report" && (
+            <>
+              <div style={{paddingTop:34,marginBottom:28}}>
+                <p>REPUBLIC OF THE PHILIPPINES&nbsp;)</p>
+                <p>PROVINCE OF {province.toUpperCase()}&nbsp;)S.S.</p>
+                <p>CITY OF <span style={{borderBottom:"1px solid #000",padding:"0 55px 2px 8px"}}>{fields.geCity}</span>.</p>
+              </div>
+
+              <div style={{textAlign:"right",marginBottom:26}}>
+                <span style={{borderBottom:"1px solid #000",display:"inline-block",minWidth:210}}>&nbsp;</span>
+              </div>
+
+              <p style={{fontWeight:800,marginBottom:2}}>SUBJECT: {fields.geSubject || `LOT ${lotNo}`}</p>
+              <p style={{fontWeight:800,marginBottom:18}}>{municipality.toUpperCase()}, {province.toUpperCase()}</p>
+
+              <div style={{textAlign:"center",fontWeight:800,fontSize:15,marginBottom:16,letterSpacing:"0.03em"}}>GEODETIC ENGINEER'S REPORT</div>
+
+              {(fields.geBody || "").trim()
+                ? fields.geBody.split("\n").filter(l => l.trim()).map((line, i) => (
+                    <p key={i} style={{textAlign:"justify",textIndent:"3em",marginBottom:14}}>{line}</p>
+                  ))
+                : <p style={{textAlign:"justify",textIndent:"3em",marginBottom:14,color:"#999"}}>[ Ilagay ang laman ng report sa form sa taas ]</p>
+              }
+
+              <p style={{textAlign:"justify",textIndent:"3em",marginTop:20,marginBottom:30}}>
+                <strong>IN WITNESS WHEREOF</strong>, I have hereunto set my hand this{" "}
+                <span style={{borderBottom:"1px solid #000",padding:"0 40px 2px 8px"}}>{fields.geHandDate}</span> at{" "}
+                <span style={{borderBottom:"1px solid #000",padding:"0 40px 2px 8px"}}>{fields.geHandPlace}</span>.
+              </p>
+
+              <div style={{width:"55%",marginLeft:"45%",textAlign:"center"}}>
+                <p style={{marginBottom:55}}>Respectfully yours,</p>
+                <div style={{display:"inline-block",position:"relative"}}>
+                  {signature&&<img src={signature} alt="signature" style={{position:"absolute",top:-95,left:"50%",transform:"translateX(-50%)",height:150,objectFit:"contain",mixBlendMode:"multiply"}}/>}
+                  <p style={{fontWeight:800}}>EUGENE BENEDICT C. BERNAS</p>
+                  <p style={{marginTop:2}}>Geodetic Engineer</p>
+                </div>
+              </div>
+
+              <p style={{textAlign:"justify",marginTop:40,marginBottom:26}}>
+                <strong>SUBSCRIBED AND SWORN</strong> to before me this{" "}
+                <span style={{borderBottom:"1px solid #000",padding:"0 45px 2px 8px"}}>&nbsp;</span> at{" "}
+                <span style={{borderBottom:"1px solid #000",padding:"0 45px 2px 8px"}}>&nbsp;</span>.
+              </p>
+
+              <div style={{lineHeight:1.9}}>
+                <p>Doc No. <span style={{borderBottom:"1px solid #000",padding:"0 30px"}}>&nbsp;</span>;</p>
+                <p>Book No. <span style={{borderBottom:"1px solid #000",padding:"0 30px"}}>&nbsp;</span>;</p>
+                <p>Page No. <span style={{borderBottom:"1px solid #000",padding:"0 30px"}}>&nbsp;</span>;</p>
+                <p>Series of {fields.geSeries}.</p>
+              </div>
             </>
           )}
         </div>
