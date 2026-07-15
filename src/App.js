@@ -7,6 +7,7 @@ import AgentsPage from "./components/agents/AgentsPage";
 import FinancePage from "./components/finance/FinancePage";
 import QRAttendancePage from "./components/qr/QRAttendancePage";
 import ImportPage from "./components/import/ImportPage";
+import AIAssistant from "./components/ai/AIAssistant";
 
 // ── SMS UTILITY ──────────────────────────────────────────────────────────────
 async function sendSMS(number, message) {
@@ -4596,6 +4597,7 @@ export default function EBBernasPortal() {
         </div>
       </div>
       {showChangePw && <ChangePasswordModal currentUser={currentUser} onClose={() => setShowChangePw(false)} />}
+      <AIAssistant />
     </>
   );
 }
