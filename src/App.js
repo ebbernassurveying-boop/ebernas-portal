@@ -4379,7 +4379,53 @@ export default function EBBernasPortal() {
                 <input value={search} onChange={(e) => setSearch(e.target.value)}
                   placeholder="Client name or lot no." className="search-input"
                   style={{ width: "100%", marginBottom: 10 }} />
-                <p className="selector-label" style={{ marginTop: 10 }}>Quick Select</p>
+
+                {/* Search results — lumalabas agad habang nagta-type */}
+                {(() => {
+                  const q = (search || "").trim().toLowerCase();
+                  if (!q) return null;
+                  const matches = Object.keys(scopedCaseStore)
+                    .filter(k => {
+                      if (!k.trim()) return false;
+                      const lot = String(scopedCaseStore[k]?.lotNo || parseCaseKey(k).lot || "").toLowerCase();
+                      return k.toLowerCase().includes(q) || lot.includes(q);
+                    })
+                    .sort((a, b) => a.localeCompare(b));
+                  if (matches.length === 0) return (
+                    <p style={{ fontSize: 11, color: "rgba(220,245,230,0.35)", marginBottom: 10, textAlign: "center", padding: "6px 0" }}>
+                      Walang nahanap na "{search}"
+                    </p>
+                  );
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10, maxHeight: 220, overflowY: "auto" }}>
+                      {matches.slice(0, 12).map(k => {
+                        const lot = scopedCaseStore[k]?.lotNo || parseCaseKey(k).lot || "";
+                        return (
+                          <button key={k} onClick={() => { setSelectedClient(k); setMenu("dashboard"); setSearch(""); }}
+                            style={{ textAlign: "left", padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.2)", cursor: "pointer", fontFamily: "inherit" }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "#e8f5ee", display: "block" }}>{caseClientName(k)}</span>
+                            {lot && <span style={{ fontSize: 10, color: "rgba(220,245,230,0.4)" }}>🏷️ Lot {lot}</span>}
+                          </button>
+                        );
+                      })}
+                      {matches.length > 12 && (
+                        <p style={{ fontSize: 10, color: "rgba(220,245,230,0.3)", textAlign: "center", marginTop: 2 }}>
+                          +{matches.length - 12} pa — i-detalye ang hanap
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
+                  <p className="selector-label" style={{ margin: 0 }}>Quick Select</p>
+                  {(quickName || selectedClient) && (
+                    <button onClick={() => { setQuickName(""); setSelectedClient(""); setSearch(""); setClientCategory("all"); }}
+                      style={{ background: "rgba(251,113,133,0.12)", border: "1px solid rgba(251,113,133,0.3)", color: "#fb7185", fontSize: 10, fontWeight: 700, padding: "3px 9px", borderRadius: 7, cursor: "pointer", fontFamily: "inherit" }}>
+                      ✕ Clear
+                    </button>
+                  )}
+                </div>
                 {/* Category filter */}
                 <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
                   {[["all","All"],["approval","📋 Approval"],["field","📐 Field"]].map(([id,label]) => (
