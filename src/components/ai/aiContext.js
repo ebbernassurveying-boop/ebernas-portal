@@ -79,6 +79,33 @@ const fmt = (d) => {
   } catch { return String(d); }
 };
 
+// ── DATE HELPERS ─────────────────────────────────────────────────────────────
+// Ginagawa lahat sa "YYYY-MM-DD" na string at UTC noon para walang gulo sa
+// timezone at walang off-by-one sa hatinggabi.
+const DAYS = ["Linggo", "Lunes", "Martes", "Miyerkules", "Huwebes", "Biyernes", "Sabado"];
+const asUTC = (iso) => new Date(`${iso}T12:00:00Z`);
+const shift = (iso, n) => {
+  const d = asUTC(iso);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+const dayName = (iso) => {
+  const d = asUTC(iso);
+  return isNaN(d) ? "" : DAYS[d.getUTCDay()];
+};
+
+// Linggo–Sabado ang linggo, tugma sa calendar grid ng portal.
+function weekWindows(todayIso) {
+  const dow = asUTC(todayIso).getUTCDay();   // 0 = Linggo
+  return {
+    tomorrow:  shift(todayIso, 1),
+    weekStart: shift(todayIso, -dow),
+    weekEnd:   shift(todayIso, 6 - dow),
+    nextStart: shift(todayIso, 7 - dow),
+    nextEnd:   shift(todayIso, 13 - dow),
+  };
+}
+
 // ── NAME MATCHING ────────────────────────────────────────────────────────────
 // Score kung gaano ka-tugma ang case key sa tanong.
 function scoreCase(key, data, qTokens, qNorm) {
@@ -200,7 +227,7 @@ export function buildAIContext(question, data = {}) {
   if (/on.?process|prosesong|ginagawa/i.test(q)) wants.push("process");
   if (/\bdone\b|tapos|natapos|approved|na-?aprubahan/i.test(q)) wants.push("done");
   if (/hindi pa.*survey|not.?surveyed|di pa.*survey/i.test(q)) wants.push("not_surveyed");
-  const wantsSched = /sched|iskedyul|bukas|ngayon|today|tomorrow|next week|linggo|araw|appointment/i.test(q);
+  const wantsSched = /sched|iskedyul|bukas|ngayon|today|tomorrow|next.?week|this.?week|susunod|sunod|linggo|araw|appointment|kailan/i.test(q);
   const wantsEmp = /employee|empleyado|tauhan|staff|team|kawani/i.test(q);
 
   // ── 1. TUGMANG PANGALAN ────────────────────────────────────────────────────
@@ -245,18 +272,45 @@ export function buildAIContext(question, data = {}) {
   }
 
   // ── 3. SCHEDULES ───────────────────────────────────────────────────────────
+  // MAHALAGA: hindi lang "paparating" ang ipinapadala. Naka-bucket ayon sa
+  // EKSAKTONG petsa (ngayon / bukas / ngayong linggo / susunod na linggo) at
+  // kasama ang mismong date range — kung hindi, hinuhulaan ng AI kung alin ang
+  // "next week" at nagkakamali.
   if (wantsSched) {
-    const open = schedules.filter((s) => !s.done);
-    const todays = open.filter((s) => s.date === today);
-    const upcoming = open.filter((s) => s.date > today).sort((a, b) => String(a.date).localeCompare(String(b.date)));
-    const line = (s) => `  • ${fmt(s.date)} — ${s.type || "Schedule"}${s.surveyType ? ` (${s.surveyType})` : ""}${s.client ? ` | Client: ${s.client}` : ""}${s.lotNo ? ` | Lot ${s.lotNo}` : ""}${s.location ? ` | ${s.location}` : ""}${s.agent ? ` | Agent: ${s.agent}` : ""}`;
+    const W = weekWindows(today);
+    const open = schedules.filter((s) => !s.done && s.date);
+    const inRange = (s, a, b) => s.date >= a && s.date <= b;
 
-    out.push(`--- SCHEDULES (${open.length} bukas pa) ---`);
-    out.push(`Ngayon (${today}): ${todays.length} schedule`);
-    todays.forEach((s) => out.push(line(s)));
-    out.push(`Paparating: ${upcoming.length} schedule`);
-    upcoming.slice(0, MAX_SCHED).forEach((s) => out.push(line(s)));
-    if (upcoming.length > MAX_SCHED) out.push(`  ...at ${upcoming.length - MAX_SCHED} pa.`);
+    const bToday  = open.filter((s) => s.date === today);
+    const bTom    = open.filter((s) => s.date === W.tomorrow);
+    const bWeek   = open.filter((s) => inRange(s, today, W.weekEnd) && s.date !== today && s.date !== W.tomorrow);
+    const bNext   = open.filter((s) => inRange(s, W.nextStart, W.nextEnd));
+    const bLater  = open.filter((s) => s.date > W.nextEnd);
+    const bPast   = open.filter((s) => s.date < today);
+
+    const line = (s) => `  • ${s.date} (${dayName(s.date)}) — ${s.type || "Schedule"}${s.surveyType ? ` (${s.surveyType})` : ""}${s.client ? ` | Client: ${s.client}` : ""}${s.lotNo ? ` | Lot ${s.lotNo}` : ""}${s.location ? ` | ${s.location}` : ""}${s.agent ? ` | Agent: ${s.agent}` : ""}`;
+    const bucket = (label, rows, cap = MAX_SCHED) => {
+      out.push(`${label}: ${rows.length}${rows.length ? "" : " — WALA"}`);
+      rows.slice(0, cap).forEach((r) => out.push(line(r)));
+      if (rows.length > cap) out.push(`  ...at ${rows.length - cap} pa.`);
+    };
+
+    out.push(`--- SCHEDULES (${open.length} bukas pa lahat) ---`);
+    out.push("KAHULUGAN NG PETSA — sundin nang eksakto, huwag baguhin:");
+    out.push(`  "ngayon"/"today"            = ${today} (${dayName(today)})`);
+    out.push(`  "bukas"/"tomorrow"          = ${W.tomorrow} (${dayName(W.tomorrow)})`);
+    out.push(`  "ngayong linggo"/"this week" = ${W.weekStart} hanggang ${W.weekEnd} (Linggo–Sabado)`);
+    out.push(`  "susunod na linggo"/"next week" = ${W.nextStart} hanggang ${W.nextEnd} (Linggo–Sabado)`);
+    out.push("BABALA: ang petsang WALA sa hinihinging range ay HINDI kasagutan.");
+    out.push(`Halimbawa: kung "next week" ang tanong, ${W.weekEnd} ay HINDI kasama —`);
+    out.push("ngayong linggo pa 'yon. Kung walang laman ang range, sabihing WALA.");
+    out.push("");
+    bucket(`NGAYON (${today})`, bToday);
+    bucket(`BUKAS (${W.tomorrow})`, bTom);
+    bucket(`NATITIRA PA NGAYONG LINGGO (hanggang ${W.weekEnd}, hindi kasama ang ngayon/bukas)`, bWeek);
+    bucket(`SUSUNOD NA LINGGO (${W.nextStart} – ${W.nextEnd})`, bNext);
+    bucket("PAGKATAPOS NG SUSUNOD NA LINGGO", bLater, 8);
+    if (bPast.length) bucket("LAGPAS NA ANG PETSA PERO HINDI PA NAMAMARKAHANG DONE", bPast, 5);
     out.push("");
   }
 
