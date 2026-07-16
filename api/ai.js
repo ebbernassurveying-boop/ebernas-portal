@@ -1,14 +1,18 @@
-// api/ai.js — Vercel Serverless Function
+// api/ai.js — Vercel Serverless Function (Anthropic / Claude)
 // ─────────────────────────────────────────────────────────────────────────────
-// Tulay ng portal papuntang Gemini. Ang API key ay NANDITO LANG sa server —
-// hindi kailanman naaabot ng browser. Kaya ligtas.
+// Tulay ng portal papuntang Claude. Ang API key ay NANDITO LANG sa server —
+// hindi kailanman naaabot ng browser.
 //
 // KAILANGAN sa Vercel → Settings → Environment Variables:
-//   GEMINI_API_KEY  = <ang key mo>          (required)
-//   GEMINI_MODEL    = gemini-2.5-flash      (optional — default na ito)
+//   ANTHROPIC_API_KEY = <ang key mo>                 (required)
+//   ANTHROPIC_MODEL   = claude-haiku-4-5-20251001    (optional — default na ito)
+//
+// Tungkol sa model: Haiku ang default — mabilis at pinakamura, sapat na sa
+// pakikipag-usap sa portal. Kung gusto mo ng mas matalino para sa mahihirap na
+// tanong, palitan ang ANTHROPIC_MODEL ng "claude-sonnet-5" (mas mahal kaunti).
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 const MAX_CHARS = 4000;      // hangganan ng haba ng tanong
 const MAX_HISTORY = 12;      // ilang naunang mensahe ang ipapadala
 
@@ -34,9 +38,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "POST lang ang tinatanggap." });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: "Hindi pa naka-set ang GEMINI_API_KEY sa Vercel." });
+    return res.status(500).json({ error: "Hindi pa naka-set ang ANTHROPIC_API_KEY sa Vercel." });
   }
 
   try {
@@ -50,70 +54,72 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: `Sobrang haba. Hanggang ${MAX_CHARS} characters lang.` });
     }
 
-    // Gawing Gemini format ang usapan. Laktawan ang unang welcome message.
-    const contents = history
+    // Gawing Anthropic format ang usapan.
+    const messages = history
       .filter((m) => m && m.text && (m.role === "user" || m.role === "ai"))
       .slice(-MAX_HISTORY)
       .map((m) => ({
-        role: m.role === "user" ? "user" : "model",
-        parts: [{ text: String(m.text).slice(0, MAX_CHARS) }],
+        role: m.role === "user" ? "user" : "assistant",
+        content: String(m.text).slice(0, MAX_CHARS),
       }));
 
+    // Kailangang mag-umpisa sa "user" — tanggalin ang welcome message sa unahan.
+    while (messages.length && messages[0].role !== "user") messages.shift();
+
     // Siguraduhing ang huling turn ay galing sa user
-    if (!contents.length || contents[contents.length - 1].role !== "user") {
-      contents.push({ role: "user", parts: [{ text }] });
+    if (!messages.length || messages[messages.length - 1].role !== "user") {
+      messages.push({ role: "user", content: text });
     }
 
-    // Kung may context na ipinasa, isama sa system instruction.
+    // Kung may context na ipinasa, isama sa system prompt.
     const sysText = context
       ? `${SYSTEM_PROMPT}\n\nDatos ng portal ngayon (gamitin kung kailangan):\n${JSON.stringify(context).slice(0, 12000)}`
       : SYSTEM_PROMPT;
 
-    const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    const model = process.env.ANTHROPIC_MODEL || DEFAULT_MODEL;
 
-    const r = await fetch(url, {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: sysText }] },
-        contents,
-        generationConfig: { temperature: 0.5, maxOutputTokens: 1024 },
+        model,
+        max_tokens: 1024,
+        temperature: 0.5,
+        system: sysText,
+        messages,
       }),
     });
 
     if (!r.ok) {
       const detail = await r.text().catch(() => "");
-      console.error("Gemini error", r.status, detail.slice(0, 800));
+      console.error("Anthropic error", r.status, detail.slice(0, 800));
 
-      // Ipakita ang status code para ma-diagnose — pero HINDI ang raw detail
-      // (baka may sensitibong laman).
       const hint =
-        r.status === 400 ? "mali ang request o invalid ang key" :
-        r.status === 401 || r.status === 403 ? "hindi tanggap ang API key — baka mali, expired, o na-delete" :
+        r.status === 400 ? "mali ang request" :
+        r.status === 401 ? "hindi tanggap ang API key — baka mali, expired, o na-delete" :
+        r.status === 403 ? "walang permiso ang key na ito" :
         r.status === 404 ? `walang model na "${model}" para sa key na ito` :
-        r.status === 429 ? "naubos ang quota o masyadong mabilis ang requests" :
-        "may problema sa Gemini";
+        r.status === 429 ? "masyadong mabilis ang requests — sandali lang, subukan ulit" :
+        r.status === 400 || r.status === 402 ? "baka naubos ang credits — tignan sa console.anthropic.com" :
+        r.status >= 500 ? "may problema sa Anthropic — subukan ulit mamaya" :
+        "may problema sa AI service";
 
-      return res.status(502).json({ error: `Gemini ${r.status}: ${hint}.` });
+      return res.status(502).json({ error: `Claude ${r.status}: ${hint}.` });
     }
 
     const data = await r.json();
-    const reply = data?.candidates?.[0]?.content?.parts
-      ?.map((p) => p.text || "")
+    const reply = (data?.content || [])
+      .filter((b) => b.type === "text")
+      .map((b) => b.text || "")
       .join("")
       .trim();
 
     if (!reply) {
-      const blocked = data?.promptFeedback?.blockReason;
-      return res.status(200).json({
-        reply: blocked
-          ? "Hindi ko masagot ang tanong na iyan."
-          : "Walang naibalik na sagot. Subukan ulit.",
-      });
+      return res.status(200).json({ reply: "Walang naibalik na sagot. Subukan ulit." });
     }
 
     return res.status(200).json({ reply });
