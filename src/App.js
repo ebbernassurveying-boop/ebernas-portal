@@ -371,6 +371,9 @@ function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, se
   const firstName = (currentUser?.displayName || "there").split(" ").pop().toUpperCase();
   const dateStr = new Date().toLocaleDateString("en-PH", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   const [caseFilter, setCaseFilter] = useState("all"); // "approval" | "field" | "all"
+  const [statusFilter, setStatusFilter] = useState("all"); // "all" | "process" | "pending" | "done"
+  const [showAllRows, setShowAllRows] = useState(false);   // 5 lang muna, i-click para makita lahat
+  const ROW_LIMIT = 5;
   const [delTarget, setDelTarget] = useState(null); // client name pending delete confirm
   const isAdmin = currentUser?.role === "admin" || currentUser?.email === "e.b.bernassurveying@gmail.com";
 
@@ -553,7 +556,7 @@ function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, se
                   { id: "field",    label: "📐 Field Survey", count: fieldClients.length },
                   { id: "all",      label: "All", count: surveyedClients.length },
                 ].map(f => (
-                  <button key={f.id} onClick={() => setCaseFilter(f.id)}
+                  <button key={f.id} onClick={() => { setCaseFilter(f.id); setShowAllRows(false); }}
                     style={{ fontSize: 11, padding: "6px 12px", borderRadius: 999, border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 700, transition: "all 0.15s",
                       background: caseFilter === f.id ? "#fff" : "rgba(255,255,255,0.07)",
                       color: caseFilter === f.id ? "#0a1a13" : "rgba(220,245,230,0.6)" }}>
@@ -563,17 +566,33 @@ function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, se
               </div>
             </div>
 
-            {/* On Process/Pending/Done counts for visible group */}
+            {/* On Process/Pending/Done — pindutin para i-filter */}
             <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 11, background: "rgba(96,165,250,0.12)", border: "1px solid rgba(96,165,250,0.25)", borderRadius: 20, padding: "3px 10px", color: "#60a5fa", fontWeight: 700 }}>
-                🔄 {visibleClients.filter(([,d]) => getCaseStatus(d) === "process").length} On Process
-              </span>
-              <span style={{ fontSize: 11, background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.25)", borderRadius: 20, padding: "3px 10px", color: "#fbbf24", fontWeight: 700 }}>
-                ⏳ {visibleClients.filter(([,d]) => getCaseStatus(d) === "pending").length} Pending
-              </span>
-              <span style={{ fontSize: 11, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)", borderRadius: 20, padding: "3px 10px", color: "#34d399", fontWeight: 700 }}>
-                ✅ {visibleClients.filter(([,d]) => getCaseStatus(d) === "done").length} Done
-              </span>
+              {[
+                { id: "process", icon: "🔄", label: "On Process", color: "#60a5fa", rgb: "96,165,250" },
+                { id: "pending", icon: "⏳", label: "Pending",    color: "#fbbf24", rgb: "251,191,36" },
+                { id: "done",    icon: "✅", label: "Done",       color: "#34d399", rgb: "52,211,153" },
+              ].map(s => {
+                const count = visibleClients.filter(([,d]) => getCaseStatus(d) === s.id).length;
+                const on = statusFilter === s.id;
+                return (
+                  <button key={s.id}
+                    onClick={() => { setStatusFilter(on ? "all" : s.id); setShowAllRows(false); }}
+                    style={{ fontSize: 11, background: on ? s.color : `rgba(${s.rgb},0.12)`,
+                      border: `1px solid rgba(${s.rgb},${on ? 1 : 0.25})`, borderRadius: 20, padding: "3px 10px",
+                      color: on ? "#0a1a13" : s.color, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                      transition: "all 0.15s" }}>
+                    {s.icon} {count} {s.label}
+                  </button>
+                );
+              })}
+              {statusFilter !== "all" && (
+                <button onClick={() => setStatusFilter("all")}
+                  style={{ fontSize: 11, background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20,
+                    padding: "3px 10px", color: "rgba(220,245,230,0.5)", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                  ✕ Alisin filter
+                </button>
+              )}
             </div>
 
             {/* Table header */}
@@ -597,17 +616,25 @@ function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, se
                 );
                 // Render Pending + Case Done sub-groups for a set of clients
                 const renderStatusGroups = (clients, keyPrefix) => {
-                  const processRows = clients.filter(([, d]) => getCaseStatus(d) === "process");
-                  const pendingRows = clients.filter(([, d]) => getCaseStatus(d) === "pending");
-                  const doneRows = clients.filter(([, d]) => getCaseStatus(d) === "done");
+                  const groups = [
+                    { id: "process", rows: clients.filter(([, d]) => getCaseStatus(d) === "process"), label: "🔄 On Process", color: "#60a5fa" },
+                    { id: "pending", rows: clients.filter(([, d]) => getCaseStatus(d) === "pending"), label: "⏳ Pending",     color: "#fbbf24" },
+                    { id: "done",    rows: clients.filter(([, d]) => getCaseStatus(d) === "done"),    label: "✅ Case Done",   color: "#34d399" },
+                  ].filter(g => statusFilter === "all" || statusFilter === g.id);
+
                   return (
                     <React.Fragment key={keyPrefix}>
-                      {processRows.length > 0 && subHeader(`🔄 On Process (${processRows.length})`, "#60a5fa")}
-                      {processRows.map(renderRow)}
-                      {pendingRows.length > 0 && subHeader(`⏳ Pending (${pendingRows.length})`, "#fbbf24")}
-                      {pendingRows.map(renderRow)}
-                      {doneRows.length > 0 && subHeader(`✅ Case Done (${doneRows.length})`, "#34d399")}
-                      {doneRows.map(renderRow)}
+                      {groups.map(g => g.rows.length > 0 && (
+                        <React.Fragment key={g.id}>
+                          {subHeader(`${g.label} (${g.rows.length})`, g.color)}
+                          {(showAllRows ? g.rows : g.rows.slice(0, ROW_LIMIT)).map(renderRow)}
+                          {!showAllRows && g.rows.length > ROW_LIMIT && (
+                            <p style={{ fontSize: 11, color: "rgba(220,245,230,0.3)", padding: "4px 2px 2px" }}>
+                              …+{g.rows.length - ROW_LIMIT} pa
+                            </p>
+                          )}
+                        </React.Fragment>
+                      ))}
                       {clients.length === 0 && (
                         <p style={{ fontSize: 12, color: "rgba(220,245,230,0.3)", padding: "6px 2px" }}>Wala pang cases dito.</p>
                       )}
@@ -638,6 +665,17 @@ function OverviewPage({ caseStore, setCaseStore, schedules = [], currentUser, se
                 return renderStatusGroups(visibleClients, caseFilter);
               })()}
             </div>
+
+            {/* Ipakita lahat / 5 lang */}
+            {visibleClients.length > ROW_LIMIT && (
+              <button onClick={() => setShowAllRows(v => !v)}
+                style={{ width: "100%", marginTop: 12, padding: "9px 0", borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)",
+                  color: "rgba(220,245,230,0.65)", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                  fontFamily: "inherit" }}>
+                {showAllRows ? "▲ Ipakita 5 lang" : `▼ Ipakita lahat (${visibleClients.length})`}
+              </button>
+            )}
           </Card>
         );
       })()}
