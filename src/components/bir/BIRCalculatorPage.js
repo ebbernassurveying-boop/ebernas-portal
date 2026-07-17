@@ -51,6 +51,32 @@ const locKey = (r) => `${r.street || "—"}${r.vicinity ? ` — ${r.vicinity}` :
 const CLASS_OPTIONS = Object.keys(CLASS_LABELS);
 
 // ── TRAIN LAW CONSTANTS ──────────────────────────────────────────────────────
+// ── DEFAULT NA BAYARIN ───────────────────────────────────────────────────────
+// Mula sa aktwal na worksheet ng opisina. Editable lahat kada kaso.
+const DEF_TRANSFER_RATE  = "7.5";     // % — praktika ng opisina
+const DEF_DS_STAMP       = "1500";    // DS Stamp / Payment Form
+const DEF_SALES_TAX_RATE = "5";       // % ng Selling Price
+const DEF_DOCS_FEE       = "3500";    // Requirements / Docs
+const DEF_NOTARIAL_FEE   = "5000";
+const DEF_PROCESSING_FEE = "15000";
+
+// ── ORDINARY ASSET (RR 2-98, susog ng RR 11-2018) ────────────────────────────
+// Ang CWT ay CREDITABLE — hindi final. Nababawas sa income tax ng nagbebenta.
+const CWT_NOT_HABITUAL = 6;
+const CWT_BRACKETS = [
+  { max: 500000, rate: 1.5 },
+  { max: 2000000, rate: 3 },
+  { max: Infinity, rate: 5 },
+];
+const VAT_RATE = 12;
+const DEF_RCIT_RATE = "25";   // % — CREATE; 20% sa maliliit na domestic corp
+
+const cwtRateFor = (base, habitual) => {
+  if (!habitual) return CWT_NOT_HABITUAL;
+  const b = CWT_BRACKETS.find((x) => base <= x.max);
+  return b ? b.rate : 5;
+};
+
 const STANDARD_DEDUCTION = 5000000;   // Estate — RA 10963 (TRAIN)
 const FAMILY_HOME_CAP    = 10000000;  // Estate — hangganan ng family home deduction
 const DONATION_EXEMPT    = 250000;    // Donor's tax — taunang exempt
@@ -222,12 +248,24 @@ function ZonalValueManager({ zonalList }) {
 // ── MAIN PAGE ────────────────────────────────────────────────────────────────
 export default function BIRCalculatorPage({ isAdmin = false }) {
   const [mode, setMode] = useState("sale"); // "sale" | "donation" | "estate"
+  const [assetType, setAssetType] = useState("capital");  // "capital" | "ordinary"
+  const [habitual, setHabitual] = useState(false);        // dealer/developer/HLURB
+  const [hasVat, setHasVat] = useState(true);
+  const [bookValue, setBookValue] = useState("");
+  const [rcitRate, setRcitRate] = useState(DEF_RCIT_RATE);
   const [sellingPrice, setSellingPrice] = useState("");
   const [zonalValue, setZonalValue] = useState("");
   const [fmvAssessor, setFmvAssessor] = useState("");
-  const [transferRate, setTransferRate] = useState("0.75");
+  const [transferRate, setTransferRate] = useState(DEF_TRANSFER_RATE);
   const [regFeeMode, setRegFeeMode] = useState("auto");
   const [manualRegFee, setManualRegFee] = useState("");
+
+  // Iba pang bayarin — may default, pero editable lahat
+  const [dsStamp, setDsStamp] = useState(DEF_DS_STAMP);
+  const [salesTaxRate, setSalesTaxRate] = useState(DEF_SALES_TAX_RATE);
+  const [docsFee, setDocsFee] = useState(DEF_DOCS_FEE);
+  const [notarialFee, setNotarialFee] = useState(DEF_NOTARIAL_FEE);
+  const [processingFee, setProcessingFee] = useState(DEF_PROCESSING_FEE);
 
   // Estate-only na inputs
   const [familyHome, setFamilyHome] = useState("");
@@ -328,6 +366,29 @@ export default function BIRCalculatorPage({ isAdmin = false }) {
   const transfer = taxBase * (num(transferRate) / 100);
   const regFee = regFeeMode === "manual" ? num(manualRegFee) : computeRegFee(taxBase);
 
+  // Iba pang bayarin.
+  // TANDAAN: ang Sales Tax ay % ng SELLING PRICE — hindi ng tax base.
+  const dsStampAmt = num(dsStamp);
+  const salesTax = sp * (num(salesTaxRate) / 100);
+  const svcDocs = num(docsFee);
+  const svcNotarial = num(notarialFee);
+  const svcProcessing = num(processingFee);
+  const totalService = salesTax + svcDocs + svcNotarial + svcProcessing;
+
+  // ── Ordinary asset — Sale mode lang ──
+  // Kapag ordinary, WALANG CGT. CWT + VAT ang kapalit.
+  const isOrdinary = mode === "sale" && assetType === "ordinary";
+  const cwtRate = isOrdinary ? cwtRateFor(taxBase, habitual) : 0;
+  const cwt = isOrdinary ? taxBase * (cwtRate / 100) : 0;
+  const vat = isOrdinary && hasVat ? taxBase * (VAT_RATE / 100) : 0;
+
+  // Income tax sa TUBO — HIWALAY sa Grand Total.
+  // Taunang ITR ito, hindi binabayaran sa transfer. Ang CWT ay credit dito.
+  const bookVal = num(bookValue);
+  const gain = Math.max(0, taxBase - bookVal);
+  const incomeTax = isOrdinary && bookVal > 0 ? gain * (num(rcitRate) / 100) : 0;
+  const netIncomeTax = incomeTax - cwt;   // negatibo = sobra ang CWT
+
   // Estate deductions (TRAIN Law)
   const fhDeduction = Math.min(num(familyHome), FAMILY_HOME_CAP);
   const totalDeductions = STANDARD_DEDUCTION + fhDeduction + num(otherDeductions);
@@ -339,35 +400,54 @@ export default function BIRCalculatorPage({ isAdmin = false }) {
   const totalReg = regFee;
 
   if (mode === "sale") {
-    const cgt = taxBase * 0.06;
-    totalBIR = cgt + dst;
+    const cgt = isOrdinary ? 0 : taxBase * 0.06;
+    totalBIR = cgt + cwt + vat + dst + dsStampAmt;
     breakdown = [
-      { label: "Capital Gains Tax (6%)", who: "BIR", amt: cgt, note: "6% ng tax base" },
+      ...(isOrdinary
+        ? [
+            { label: `Creditable Withholding Tax (${cwtRate}%)`, who: "BIR", amt: cwt,
+              note: habitual ? "Habitually engaged — CREDIT lang, hindi final" : "Hindi habitually engaged — CREDIT lang, hindi final" },
+            ...(hasVat ? [{ label: `VAT (${VAT_RATE}%)`, who: "BIR", amt: vat, note: "Output VAT — ordinary asset" }] : []),
+          ]
+        : [{ label: "Capital Gains Tax (6%)", who: "BIR", amt: cgt, note: "6% ng tax base — FINAL, tapos na" }]),
       { label: "Documentary Stamp Tax", who: "BIR", amt: dst, note: `₱15 kada ₱1,000 → ${Math.ceil(taxBase / 1000).toLocaleString("en-PH")} × ₱15` },
+      { label: "DS Stamp (Payment Form)", who: "BIR", amt: dsStampAmt, note: "Takdang halaga" },
       { label: `Transfer Tax (${transferRate}%)`, who: "LGU / Provincial", amt: transfer, note: "Provincial/City Treasurer" },
       { label: "Registration Fee", who: "Registry of Deeds", amt: regFee, note: regFeeMode === "manual" ? "Manual entry" : "Tinatayang LRA schedule" },
     ];
   } else if (mode === "donation") {
     const net = Math.max(0, taxBase - DONATION_EXEMPT);
     const donorsTax = net * 0.06;
-    totalBIR = donorsTax + dst;
+    totalBIR = donorsTax + dst + dsStampAmt;
     breakdown = [
       { label: "Donor's Tax (6%)", who: "BIR", amt: donorsTax, note: `6% ng lampas sa ${peso(DONATION_EXEMPT)} taunang exempt` },
       { label: "Documentary Stamp Tax", who: "BIR", amt: dst, note: "I-verify sa RDO — iba ang aplikasyon sa donation" },
+      { label: "DS Stamp (Payment Form)", who: "BIR", amt: dsStampAmt, note: "Takdang halaga" },
       { label: `Transfer Tax (${transferRate}%)`, who: "LGU / Provincial", amt: transfer, note: "Treasurer" },
       { label: "Registration Fee", who: "Registry of Deeds", amt: regFee, note: regFeeMode === "manual" ? "Manual entry" : "Tinatayang LRA schedule" },
     ];
   } else {
     const estateTax = netEstate * 0.06;
-    totalBIR = estateTax + dst;
+    totalBIR = estateTax + dst + dsStampAmt;
     breakdown = [
       { label: "Estate Tax (6%)", who: "BIR", amt: estateTax, note: `6% ng net estate na ${peso(netEstate)}` },
       { label: "Documentary Stamp Tax", who: "BIR", amt: dst, note: "I-verify sa RDO — iba ang aplikasyon sa estate" },
+      { label: "DS Stamp (Payment Form)", who: "BIR", amt: dsStampAmt, note: "Takdang halaga" },
       { label: `Transfer Tax (${transferRate}%)`, who: "LGU / Provincial", amt: transfer, note: "Treasurer" },
       { label: "Registration Fee", who: "Registry of Deeds", amt: regFee, note: regFeeMode === "manual" ? "Manual entry" : "Tinatayang LRA schedule" },
     ];
   }
-  const grandTotal = totalBIR + totalLGU + totalReg;
+  // Bayaring hindi buwis — idinugtong sa lahat ng mode.
+  breakdown = [...breakdown, ...[
+    { label: `Sales Tax (${salesTaxRate}%)`, who: "Opisina", amt: salesTax, note: `${salesTaxRate}% ng Selling Price` },
+    { label: "Requirements / Docs Fee", who: "Opisina", amt: svcDocs, note: "Pagkuha ng dokumento" },
+    { label: "Notarial Fee", who: "Opisina", amt: svcNotarial, note: "Notaryo" },
+    { label: "Processing Fee", who: "Opisina", amt: svcProcessing, note: "Serbisyo ng opisina" },
+  ].filter((i) => i.amt > 0)];
+
+  const grandTotal = totalBIR + totalLGU + totalReg + totalService;
+
+  const hasOrdinaryUI = mode === "sale" && assetType === "ordinary";
 
   const chip = (active) => ({
     flex: 1, fontSize: 12, padding: "8px 0", borderRadius: 999, border: "none", cursor: "pointer",
@@ -389,6 +469,59 @@ export default function BIRCalculatorPage({ isAdmin = false }) {
               <button key={m.id} onClick={() => setMode(m.id)} style={chip(mode === m.id)}>{m.label}</button>
             ))}
           </div>
+
+          {mode === "sale" && (
+            <div style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.28)", borderRadius: 14, padding: 14, marginBottom: 16 }}>
+              <p style={{ fontSize: 11, fontWeight: 800, color: "#a78bfa", marginBottom: 3 }}>🏢 Uri ng asset ng nagbebenta</p>
+              <p style={{ fontSize: 10, color: "rgba(220,245,230,0.45)", marginBottom: 10 }}>
+                Ito ang nagtatakda ng buwis — hindi kung indibidwal o company. Ang company na may lupang hindi gamit sa negosyo ay CGT 6% pa rin.
+              </p>
+
+              <div style={{ display: "flex", gap: 6, marginBottom: hasOrdinaryUI ? 12 : 0 }}>
+                <button onClick={() => setAssetType("capital")} style={chip(assetType === "capital")}>Capital asset</button>
+                <button onClick={() => setAssetType("ordinary")} style={chip(assetType === "ordinary")}>Ordinary asset</button>
+              </div>
+
+              {assetType === "capital" ? (
+                <p style={{ fontSize: 10, color: "rgba(220,245,230,0.5)", marginTop: 8 }}>
+                  Hindi gamit sa negosyo. <strong style={{ color: "#34d399" }}>CGT 6% — final tax.</strong> Walang VAT, walang income tax sa tubo.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div>
+                    <label style={labelStyle}>Habitually engaged sa real estate?</label>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => setHabitual(true)} style={chip(habitual)}>Oo — dealer / HLURB</button>
+                      <button onClick={() => setHabitual(false)} style={chip(!habitual)}>Hindi</button>
+                    </div>
+                    <p style={{ fontSize: 10, color: "rgba(220,245,230,0.4)", marginTop: 5 }}>
+                      CWT ngayon: <strong style={{ color: "#a78bfa" }}>{cwtRate}%</strong>
+                      {habitual ? " — ≤₱500k: 1.5% · ₱500k–₱2M: 3% · >₱2M: 5%" : " — hindi habitually engaged"}
+                    </p>
+                  </div>
+
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                    <input type="checkbox" checked={hasVat} onChange={e => setHasVat(e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer" }} />
+                    <span style={{ fontSize: 12, color: "#e8f5ee" }}>May VAT (12%)</span>
+                  </label>
+                  <p style={{ fontSize: 10, color: "rgba(220,245,230,0.4)", marginTop: -6 }}>
+                    Karaniwang may VAT ang ordinary asset. Exempt ang house-and-lot na ≤₱3.6M (RR 1-2024) — pero iba ang tuntunin sa bakanteng lote. I-verify sa RDO.
+                  </p>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 12 }}>
+                    <div>
+                      <label style={labelStyle}>Book value (opsyonal)</label>
+                      <input value={bookValue} onChange={e => setBookValue(e.target.value)} placeholder="0.00" inputMode="decimal" style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Income tax rate (%)</label>
+                      <input value={rcitRate} onChange={e => setRcitRate(e.target.value)} placeholder="25" inputMode="decimal" style={inputStyle} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Zonal picker ── */}
           <div style={{ background: "rgba(96,165,250,0.08)", border: "1px solid rgba(96,165,250,0.25)", borderRadius: 14, padding: 14, marginBottom: 16 }}>
@@ -505,8 +638,42 @@ export default function BIRCalculatorPage({ isAdmin = false }) {
             <div>
               <label style={labelStyle}>🏢 Transfer Tax Rate (%) — LGU</label>
               <input value={transferRate} onChange={e => setTransferRate(e.target.value)} placeholder="0.75" inputMode="decimal" style={inputStyle} />
-              <p style={{ fontSize: 10, color: "rgba(220,245,230,0.4)", marginTop: 5 }}>Karaniwan: 0.50% (probinsya) – 0.75%. Iba-iba kada LGU.</p>
+              <p style={{ fontSize: 10, color: "rgba(220,245,230,0.4)", marginTop: 5 }}>Default 7.5% — praktika ng opisina. Iba-iba kada LGU; i-verify sa Treasurer.</p>
             </div>
+            <div style={{ background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <p style={{ fontSize: 11, fontWeight: 800, color: "#34d399" }}>🧾 Iba pang bayarin</p>
+                <p style={{ fontSize: 10, color: "rgba(220,245,230,0.4)", marginTop: 3 }}>May default mula sa worksheet ng opisina — palitan kung kailangan. Ang 0 ay hindi lalabas sa breakdown.</p>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>DS Stamp (Payment Form)</label>
+                  <input value={dsStamp} onChange={e => setDsStamp(e.target.value)} placeholder="0.00" inputMode="decimal" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Sales Tax (% ng Selling Price)</label>
+                  <input value={salesTaxRate} onChange={e => setSalesTaxRate(e.target.value)} placeholder="0" inputMode="decimal" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Requirements / Docs Fee</label>
+                  <input value={docsFee} onChange={e => setDocsFee(e.target.value)} placeholder="0.00" inputMode="decimal" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Notarial Fee</label>
+                  <input value={notarialFee} onChange={e => setNotarialFee(e.target.value)} placeholder="0.00" inputMode="decimal" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Processing Fee</label>
+                  <input value={processingFee} onChange={e => setProcessingFee(e.target.value)} placeholder="0.00" inputMode="decimal" style={inputStyle} />
+                </div>
+                <div style={{ display: "flex", alignItems: "flex-end" }}>
+                  <p style={{ fontSize: 11, color: "rgba(220,245,230,0.6)" }}>
+                    Kabuuan: <strong style={{ color: "#34d399" }}>{peso(totalService)}</strong>
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div>
               <label style={labelStyle}>📝 Registration Fee</label>
               <div style={{ display: "flex", gap: 6, marginBottom: regFeeMode === "manual" ? 10 : 0 }}>
@@ -546,12 +713,33 @@ export default function BIRCalculatorPage({ isAdmin = false }) {
             <div style={{ display: "flex", justifyContent: "space-between" }}><span>Total BIR</span><strong>{peso(totalBIR)}</strong></div>
             <div style={{ display: "flex", justifyContent: "space-between" }}><span>Total LGU (Transfer Tax)</span><strong>{peso(totalLGU)}</strong></div>
             <div style={{ display: "flex", justifyContent: "space-between" }}><span>Registry of Deeds</span><strong>{peso(totalReg)}</strong></div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Opisina (hindi buwis)</span><strong>{peso(totalService)}</strong></div>
           </div>
 
           <div style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.35)", borderRadius: 16, padding: 20, textAlign: "center" }}>
             <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: "#34d399", marginBottom: 6 }}>KABUUANG BABAYARAN (EST.)</p>
             <p style={{ fontSize: 32, fontWeight: 900, color: "#34d399" }}>{peso(grandTotal)}</p>
           </div>
+
+          {isOrdinary && bookVal > 0 && (
+            <div style={{ background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.3)", borderRadius: 14, padding: 16, marginTop: 16 }}>
+              <p style={{ fontSize: 11, fontWeight: 800, color: "#a78bfa", marginBottom: 8 }}>📈 Income tax sa tubo — HINDI kasama sa itaas</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 12, color: "rgba(220,245,230,0.75)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Tax base</span><strong>{peso(taxBase)}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Book value</span><strong>− {peso(bookVal)}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Tubo</span><strong style={{ color: "#e8f5ee" }}>{peso(gain)}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Income tax ({rcitRate}%)</span><strong>{peso(incomeTax)}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Bawas: CWT na naibayad</span><strong>− {peso(cwt)}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(167,139,250,0.25)", paddingTop: 6, marginTop: 2 }}>
+                  <span style={{ fontWeight: 700 }}>{netIncomeTax >= 0 ? "Babayaran pa sa ITR" : "Sobra ang CWT (credit)"}</span>
+                  <strong style={{ color: netIncomeTax >= 0 ? "#fbbf24" : "#34d399" }}>{peso(Math.abs(netIncomeTax))}</strong>
+                </div>
+              </div>
+              <p style={{ fontSize: 10, color: "rgba(167,139,250,0.85)", lineHeight: 1.6, marginTop: 10 }}>
+                Hindi ito binabayaran sa transfer — taunang ITR ito. Tantiya lang: ang totoong tubo ay batay sa libro ng kompanya (depreciation, improvements, gastos), hindi lang sa book value. Accountant ang dapat magkumpirma.
+              </p>
+            </div>
+          )}
 
           <p style={{ fontSize: 11, color: "#fbbf24", lineHeight: 1.7, marginTop: 16 }}>
             ⚠️ Tinatayang halaga lamang ito. Hindi kasama ang penalties, surcharges, notarial, IT fee, at iba pa.
