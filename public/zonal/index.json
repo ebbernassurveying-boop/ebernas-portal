@@ -1,0 +1,114 @@
+{
+ "source": "RDO No. 5 — Alaminos City, West Pangasinan",
+ "do": "D.O. No. 082-2022",
+ "effectivity": "Nov. 29, 2022",
+ "note": "Kasalukuyang schedule. Palitan kapag may bagong Department Order.",
+ "total": 7193,
+ "municipalities": [
+  {
+   "municipality": "AGNO",
+   "file": "agno.json",
+   "barangays": 17,
+   "count": 324,
+   "revision": "3"
+  },
+  {
+   "municipality": "AGUILAR",
+   "file": "aguilar.json",
+   "barangays": 16,
+   "count": 294,
+   "revision": "3"
+  },
+  {
+   "municipality": "ALAMINOS CITY",
+   "file": "alaminos-city.json",
+   "barangays": 39,
+   "count": 604,
+   "revision": "4"
+  },
+  {
+   "municipality": "ANDA",
+   "file": "anda.json",
+   "barangays": 19,
+   "count": 378,
+   "revision": "3"
+  },
+  {
+   "municipality": "BANI",
+   "file": "bani.json",
+   "barangays": 27,
+   "count": 618,
+   "revision": "3"
+  },
+  {
+   "municipality": "BINMALEY",
+   "file": "binmaley.json",
+   "barangays": 33,
+   "count": 430,
+   "revision": "4"
+  },
+  {
+   "municipality": "BUGALLON",
+   "file": "bugallon.json",
+   "barangays": 24,
+   "count": 409,
+   "revision": "3"
+  },
+  {
+   "municipality": "BURGOS",
+   "file": "burgos.json",
+   "barangays": 13,
+   "count": 436,
+   "revision": "3"
+  },
+  {
+   "municipality": "DASOL",
+   "file": "dasol.json",
+   "barangays": 18,
+   "count": 548,
+   "revision": "3"
+  },
+  {
+   "municipality": "INFANTA",
+   "file": "infanta.json",
+   "barangays": 13,
+   "count": 346,
+   "revision": "3"
+  },
+  {
+   "municipality": "LABRADOR",
+   "file": "labrador.json",
+   "barangays": 10,
+   "count": 324,
+   "revision": "3"
+  },
+  {
+   "municipality": "LINGAYEN",
+   "file": "lingayen.json",
+   "barangays": 30,
+   "count": 566,
+   "revision": "5"
+  },
+  {
+   "municipality": "MABINI",
+   "file": "mabini.json",
+   "barangays": 16,
+   "count": 330,
+   "revision": "3"
+  },
+  {
+   "municipality": "MANGATAREM",
+   "file": "mangatarem.json",
+   "barangays": 88,
+   "count": 1285,
+   "revision": "3"
+  },
+  {
+   "municipality": "SUAL",
+   "file": "sual.json",
+   "barangays": 19,
+   "count": 301,
+   "revision": "3"
+  }
+ ]
+}
